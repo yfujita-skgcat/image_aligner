@@ -7,13 +7,15 @@
   <dependency type="executable" location="extensions">simpletransform.py</dependency>
   <dependency type="executable" location="extensions">simplestyle.py</dependency>
 
-  <param name="0" type="enum" _gui-text="Angle:">
+  <param name="angle" type="enum" _gui-text="Angle:">
     <_item value="0">No rotate</_item> <_item value="90">Rotate 90 degree</_item> <_item value="180">Rotate 180 degree</_item> <_item value="270">Rotate 270 degree</_item>
   </param>
 
-  <param name="horizontal" type="enum" _gui-text="Filter align:">
+  <param name="direction" type="enum" _gui-text="Filter align:">
     <_item value="horizontal">Horizontal</_item><_item value="vertical">Vertical</_item>
   </param>
+
+	<param name="selectedonly" type="boolean" _gui-text="Align only selected images">false</param>
 
   <!-- <param name="markernum" type="int" _gui-text="No. of filter">1</param> -->
   <!-- <param name="od" type="string" _gui-text="ID of objects to align">alignimage</param> -->
