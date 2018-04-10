@@ -158,20 +158,14 @@ class ImageAlignEffect( inkex.Effect ):
         mat = transform_matrix[self.options.angle]
         xy = np.array([x, y, 1])
         xy_t = xy.T
-        # logger.debug("xy = " + str(xy))
-        # logger.debug("xy_t = " + str(xy_t))
         new_xy = np.dot(np.linalg.inv(mat), xy_t)
-        # logger.debug("new_xy = " + str(new_xy))
         return new_xy[0], new_xy[1]
 
 
     def get_image_fname(self, img_obj):
         filename = None
         for attr in img_obj.keys():
-            # logger.debug("attr = " + attr)
             if re.search("href$", attr):
-                # logger.debug("MATCH attr = " + attr)
-                # filename = re.sub("^[^/]", "", img_obj.get(attr))
                 filename = img_obj.get(attr).split("/")[-1]
                 break
         return filename
@@ -208,8 +202,6 @@ class ImageAlignEffect( inkex.Effect ):
                 img_obj.set(vertical_param, str(new_height))
                 image_width = new_width
                 image_height = new_height
-            # logger.debug("width = "  + str(image_width))
-            # logger.debug("height = " + str(image_height))
 
             if max_image_width < image_width:
                 max_image_width = image_width
@@ -383,7 +375,6 @@ if len(sys.argv) == 1:
     # sys.argv = [ './platealign.py', '--angle=0', '--direction=horizontal', '--hspace=10', '--vspace=20', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
     sys.argv = [ './platealign.py', '--id=image4757', '--angle=90', '--direction=vertical', '--hspace=10', '--vspace=20', '--filterspace=2', '--fieldspace=5', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
 
-logger.debug( "Started with: {}.".format( str( sys.argv ) ) )
 effect = ImageAlignEffect()
-# effect.affect = new_affect
+# logger.debug( "Started with: {}.".format( str( sys.argv ) ) )
 effect.affect(args=sys.argv)
