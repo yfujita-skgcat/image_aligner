@@ -45,7 +45,6 @@ logger.setLevel( 'WARNING' )
 # logger.setLevel( logging.DEBUG )
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 fh = logging.StreamHandler( sys.stderr )
-# fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='w')
 # fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='a')
 fh.setLevel( logging.DEBUG )
 fh.setFormatter(formatter)
@@ -137,6 +136,7 @@ class ImageAlignEffect( inkex.Effect ):
             row_keys = sorted(images.keys(), key=lambda x:filter2index[x])
             xspace = self.options.fieldspace
             yspace = self.options.filterspace
+
 
         for i, row_key in enumerate(row_keys):
             for j, col_key in enumerate(col_keys):
@@ -230,23 +230,23 @@ class ImageAlignEffect( inkex.Effect ):
 
             if   matchObj1:
                 row = matchObj1.group(1)
-                col = matchObj1.group(2)
+                col = matchObj1.group(2).zfill(2)
                 fld = matchObj1.group(3).zfill(2)
                 wav = re.sub('%20', '', matchObj1.group(4))
             elif matchObj2:
                 row = matchObj2.group(1)
-                col = matchObj2.group(2)
-                fld = matchObj2.group(3)
+                col = matchObj2.group(2).zfill(2)
+                fld = matchObj2.group(3).zfill(2)
                 wav = ix81_to_cytell_filter[matchObj2.group(4)]
             elif matchObj3:
                 row = matchObj3.group(1)
-                col = matchObj3.group(2)
+                col = matchObj3.group(2).zfill(2)
                 fld = "01"
                 wav = ix81_to_cytell_filter[matchObj3.group(3)]
             elif matchObj4:
                 row = "A"
                 col = matchObj4.group(1).zfill(2)
-                fld = matchObj4.group(2)
+                fld = matchObj4.group(2).zfill(2)
                 wav = ix81_to_cytell_filter[matchObj4.group(3)]
             elif matchObj5:
                 row = "A"
@@ -271,9 +271,8 @@ class ImageAlignEffect( inkex.Effect ):
                 images[row][col][wav] = {} if not images[row][col].has_key(wav) else images[row][col][wav]
                 images[row][col][wav][fld] = img_obj
 
-
+        # logger.debug("images = " + pp.pformat(images))
         return images, max_image_width, max_image_height
-        # return images, max_image_width, max_image_height, rows, cols
 
     # 画像の並びの構造は以下のとおりになっている
     # プレートは以下の通り
@@ -313,6 +312,7 @@ class ImageAlignEffect( inkex.Effect ):
     # B1, B2, B3 について、len(B1), len(B2), len(B3)を調べていけば良い
     def get_vertical_max_width(self, table, ci):
         max_n = 0
+        # logger.debug("ci = " + str(ci))
         for i in table.keys(): # 行のindex
             if table[i].has_key(ci):
                 for j in table[i][ci].keys(): # 行のindex
@@ -364,6 +364,8 @@ class ImageAlignEffect( inkex.Effect ):
 
         row2vnum = self.get_horizontal_max_height_table(images)
         col2hnum = self.get_vertical_max_width_table(images)
+        # logger.debug("row2vnum = " + pp.pformat(row2vnum))
+        # logger.debug("col2hnum = " + pp.pformat(col2hnum))
 
 
         # 左上から並べていくんだが左上を(0,0)として
@@ -416,6 +418,6 @@ if len(sys.argv) == 1:
     # sys.argv = [ './platealign.py', '--angle=0', '--direction=horizontal', '--hspace=10', '--vspace=20', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
     sys.argv = [ './platealign.py', '--id=image4757', '--angle=90', '--direction=vertical', '--hspace=10', '--vspace=20', '--filterspace=2', '--fieldspace=5', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
 
-effect = ImageAlignEffect()
 # logger.debug( "Started with: {}.".format( str( sys.argv ) ) )
+effect = ImageAlignEffect()
 effect.affect(args=sys.argv)
