@@ -41,17 +41,17 @@ pp = pprint.PrettyPrinter(indent=2)
 
 #a logger for debugging/warnings
 logger = logging.getLogger( "platealign" )
-# logger.setLevel( 'WARNING' )
-logger.setLevel( logging.DEBUG )
+logger.setLevel( 'WARNING' )
+# logger.setLevel( logging.DEBUG )
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-# sh = logging.StreamHandler( sys.stderr )
+fh = logging.StreamHandler( sys.stderr )
 # fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='w')
-fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='a')
+# fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='a')
 fh.setLevel( logging.DEBUG )
 fh.setFormatter(formatter)
 
 logger.addHandler( fh )
-logger.debug( "Logger initialized" )
+logger.debug( "\n\nLogger initialized" )
 
 # def new_affect(self, args=sys.argv[1:], output=True):
 #     """Affect an SVG document with a callback effect"""
@@ -80,6 +80,21 @@ class ImageAlignEffect( inkex.Effect ):
         self.OptionParser.add_option( '-d', '--direction', action = 'store',
           type = 'string', dest = 'direction', default = 'horizontal',
           help = 'Set direction of the each filter image.' )
+        self.OptionParser.add_option( '', '--filterspace', action = 'store',
+          type = 'int', dest = 'filterspace', default = '2',
+          help = 'Space between each filter' )
+        self.OptionParser.add_option( '', '--fieldspace', action = 'store',
+          type = 'int', dest = 'fieldspace', default = '5',
+          help = 'Space between each field' )
+        self.OptionParser.add_option( '-v', '--vspace', action = 'store',
+          type = 'int', dest = 'vspace', default = '5',
+          help = 'Set vertical space between images.' )
+        self.OptionParser.add_option( '', '--hspace', action = 'store',
+          type = 'int', dest = 'hspace', default = '5',
+          help = 'Set horizontal space between images.' )
+        self.OptionParser.add_option( '-w', '--width', action = 'store',
+          type = 'float', dest = 'width', default = '5',
+          help = 'Scaling width of images.' )
         self.OptionParser.add_option("-s", "--selectedonly",
             action="store", type="inkbool", 
             dest="selectedonly", default=False,
@@ -91,223 +106,282 @@ class ImageAlignEffect( inkex.Effect ):
 
     color_list = [ '#0000ff', '#00ff00', '#ff0000', '#ff00ff', '#00ffff', '#ffff00', '#8800ff', '#0088ff', '#00ff88', '#ff0088' ] 
 
+    #  filt1  filt2  filt3
+    # [img11, img12, img13,...]
+    # [img21, -----, img23,...]
+    # [img31, -----, img33,...]
+    # または
+    # filt1 [img11, img12, img13,...]
+    # filt2 [img21, -----, img23,...]
+    # filt3 [img31, -----, img33,...]
+    # を並べる
+    def align_images(self, images, x, y, width, height, filter_direction="horizontal"):
+        filter2index = {
+                'Transillumination-Blank1': 1,
+                'DAPI - DAPI': 2,
+                'FITC-FITC': 3,
+                'Cy3-Cy3': 4,
+                'Cy5-Cy5': 5,
+                }
+        col_keys = []
+        for i, row in sorted(images.items()):
+            col_keys.extend(row.keys())
+
+        if filter_direction == "horizontal":
+            col_keys = sorted(set(col_keys), key=lambda x:filter2index[x])
+            row_keys = sorted(images.keys())
+            xspace = self.options.filterspace
+            yspace = self.options.fieldspace
+        else:
+            col_keys = sorted(set(col_keys))
+            row_keys = sorted(images.keys(), key=lambda x:filter2index[x])
+            xspace = self.options.fieldspace
+            yspace = self.options.filterspace
+
+        for i, row_key in enumerate(row_keys):
+            for j, col_key in enumerate(col_keys):
+                if images[row_key].has_key(col_key):
+                    img_obj = images[row_key][col_key]
+                    xpos = x + j * (width  + xspace)
+                    ypos = y + i * (height + yspace)
+                    xpos, ypos = self.transform_rotate_xy(xpos, ypos)
+                    img_obj.set("x", str(xpos))
+                    img_obj.set("y", str(ypos))
+
+    def transform_rotate_xy(self, x, y):
+        transform_matrix = {
+                0:    np.array([[ 1,  0,  0], [ 0,  1,  0], [ 0,  0,  1]]),
+                90:   np.array([[ 0, -1,  0], [ 1,  0,  0], [ 0,  0,  1]]),
+                180:  np.array([[-1,  0,  0], [ 0, -1,  0], [ 0,  0,  1]]),
+                270:  np.array([[ 0,  1,  0], [-1,  0,  0], [ 0,  0,  1]]),
+                }
+        mat = transform_matrix[self.options.angle]
+        xy = np.array([x, y, 1])
+        xy_t = xy.T
+        # logger.debug("xy = " + str(xy))
+        # logger.debug("xy_t = " + str(xy_t))
+        new_xy = np.dot(np.linalg.inv(mat), xy_t)
+        # logger.debug("new_xy = " + str(new_xy))
+        return new_xy[0], new_xy[1]
+
+
+    def get_image_fname(self, img_obj):
+        filename = None
+        for attr in img_obj.keys():
+            # logger.debug("attr = " + attr)
+            if re.search("href$", attr):
+                # logger.debug("MATCH attr = " + attr)
+                # filename = re.sub("^[^/]", "", img_obj.get(attr))
+                filename = img_obj.get(attr).split("/")[-1]
+                break
+        return filename
+
+
+    def categorize_images(self, image_ids, direction="horizontal"):
+        max_image_width  = 0
+        max_image_height = 0
+        images = {}
+        rows = []
+        cols = []
+        if self.options.angle == 90 or  self.options.angle == 270:
+            vertical_param   = "width"
+            horizontal_param = "height"
+        else:
+            vertical_param   = "height"
+            horizontal_param = "width"
+        for img_id in image_ids:
+            img_obj = self.getElementById(img_id)
+            if self.options.angle == 0 and img_obj.attrib.has_key("transform"):
+                del img_obj.attrib["transform"]
+            elif self.options.angle == 90:
+                img_obj.set("transform", "matrix(0,1,-1,0,0,0)")
+            elif self.options.angle == 180:
+                img_obj.set("transform", "scale(-1,-1)")
+            elif self.options.angle == 270:
+                img_obj.set("transform", "matrix(0,-1,1,0,0,0)")
+            image_width  = float(img_obj.get(horizontal_param))
+            image_height = float(img_obj.get(vertical_param))
+            if self.options.width != 0.0:
+                new_width = self.options.width
+                new_height = image_height * new_width / image_width
+                img_obj.set(horizontal_param, str(new_width))
+                img_obj.set(vertical_param, str(new_height))
+                image_width = new_width
+                image_height = new_height
+            # logger.debug("width = "  + str(image_width))
+            # logger.debug("height = " + str(image_height))
+
+            if max_image_width < image_width:
+                max_image_width = image_width
+            if max_image_height < image_height:
+                max_image_height = image_height
+
+            filename = self.get_image_fname(img_obj)
+
+            if filename == None:
+                continue
+
+            matchObj = (re.match('([A-Z])-(\d+)_fld_(\d+)_wv_([^.]+)', filename) or re.match('([A-Z])%20-%20(\d+)\(fld%20(\d+)%20wv%20([^)]+)', filename))
+            if matchObj:
+                row = matchObj.group(1)
+                col = matchObj.group(2)
+                fld = matchObj.group(3).zfill(2)
+                wav = re.sub('%20', '', matchObj.group(4))
+            else:
+                continue
+            images[row] = {} if not images.has_key(row) else images[row]
+            images[row][col] = {} if not images[row].has_key(col) else images[row][col]
+            if direction == "horizontal":
+                images[row][col][fld] = {} if not images[row][col].has_key(fld) else images[row][col][fld]
+                images[row][col][fld][wav] = img_obj
+            else:
+                images[row][col][wav] = {} if not images[row][col].has_key(wav) else images[row][col][wav]
+                images[row][col][wav][fld] = img_obj
+
+
+        return images, max_image_width, max_image_height
+        # return images, max_image_width, max_image_height, rows, cols
+
+    # 画像の並びの構造は以下のとおりになっている
+    # プレートは以下の通り
+    #   1  2  3  4 ...
+    # A
+    # B
+    # C
+    # D
+    # ...
+    # まずこのrow, colから画像が存在するところだけ取り出す.
+    # そしてあるrow, colについて
+    #      filter1, filter2, filter3,...
+    # fld1
+    # fld2
+    # fld3
+    # ...
+    # となっているので入れ子構造になっているように見える.
+    # ただし、プレートと同じようにすると、あるrow, col内ではfilterは揃った縦列に並ぶが
+    # 異なるrow, col同士を比べると、filterの縦列が揃わない可能性がある.
+    # だから、filterが横に並ぶ場合は同じcolを全部見て位置を決めなければならない
+    # 同じcolに含まれるfilterを全部拾ってuniqとって、数をindexにするのか
+    # table は dictionary
+    #      1,  2,  3  ...
+    # A: [A1, A2, A3, ...]
+    # B: [B1, B2, B3, ...]
+    # C: [C1, C2, C3, ...]
+    # 各 A1, A2, A3.. が
+    #      1,  2,  3  ...
+    # a: [a1, a2, a3, ...]
+    # b: [b1, b2, b3, ...]
+    # c: [c1, c2, c3, ...]
+    # という構造をとっている.
+    # なので、例えば2番目の横方向の幅を調べる場合は、
+    # A2,B2,C2 について、len(a), len(b), len(c)を調べていけば良い
+    #
+    # 一方B番目の縦方向の幅を調べるには
+    # B1, B2, B3 について、len(B1), len(B2), len(B3)を調べていけば良い
+    def get_vertical_max_width(self, table, ci):
+        max_n = 0
+        for i in table.keys(): # 行のindex
+            if table[i].has_key(ci):
+                for j in table[i][ci].keys(): # 行のindex
+                    if max_n < len(table[i][ci][j]): # 行の長さ
+                        max_n = len(table[i][ci][j])
+        return max_n
+
+    def get_vertical_max_width_table(self, table):
+        col2hnum = {}
+        for i in range(1, 12):
+            col2hnum[str(i).zfill(2)] = self.get_vertical_max_width(table, str(i).zfill(2))
+        return col2hnum
+
+    def get_horizontal_max_height(self, table, ri):
+        max_n = 0
+        if not table.has_key(ri):
+            return max_n
+        for i in table[ri].keys(): # 列のindex
+            if max_n < len(table[ri][i]):
+                max_n = len(table[ri][i])
+        return max_n
+
+
+    def get_horizontal_max_height_table(self, table):
+        row2vnum = {}
+        for i in range(65, 89):  # A-Z まで
+            row2vnum[chr(i)] = self.get_horizontal_max_height(table, chr(i))
+        return row2vnum
+
+
     # 多分このeffect()が affect() で呼ばれるんだと思う.
     def effect( self ):
+
+        # 蛍光画像間のスペース(px)
+        space_wav = 2
 
         if self.options.selectedonly:
             image_ids = self.options.ids
         else:
             image_ids = map(lambda x: x.get("id"), self.document.getroot().xpath('//svg:image', namespaces=inkex.NSS))
 
-        # self.document=document #not that nice... oh well
-        # path = '//svg:image'
-        # for node in self.document.getroot().xpath(path, namespaces=inkex.NSS):
-        #     self.embedImage(node)
-        logger.debug("image_ids = " + str(image_ids))
 
-        images = {}
+        images, max_image_width, max_image_height = self.categorize_images(image_ids, direction=self.options.direction)
 
-        image_array = {}
+        for row in range(65, 89):
+            chr(row)
 
-        for img_id in image_ids:
-            img_obj = self.getElementById(img_id)
-            # img_obj.set("x", "0")
-            # logger.debug(str(etree.tostring(img_obj)))
-            # logger.debug(img_obj.get("id"))
-            # logger.debug("inkex.NSS = " + str(inkex.NSS))
-            for attr in img_obj.keys():
-                # logger.debug("attr = " + attr)
-                if re.search("href$", attr):
-                    # logger.debug("MATCH attr = " + attr)
-                    # filename = re.sub("^[^/]", "", img_obj.get(attr))
-                    filename = img_obj.get(attr).split("/")[-1]
-                    break
 
-            # logger.debug(str(img_obj.attrib))
-            # logger.debug(str(img_obj.get("{http://www.w3.org/1999/xlink}href")))
-            # filename = re.sub("[^/]+", "", img_obj.get("xlink:href"))
-            if filename == None:
+
+        row2vnum = self.get_horizontal_max_height_table(images)
+        col2hnum = self.get_vertical_max_width_table(images)
+
+
+        # 左上から並べていくんだが左上を(0,0)として
+        # row, col, fld, wav それぞれにインデックスをつけて並べていくのが良い
+        # row_image_count = -row2vnum["A"]  # この数字は実際の画像の数(画像間intervalなどのため)
+        # row_chunk_count = -1              # この数字は実際にデータが存在した行をどれぐらい処理したかカウントするため(行間インターバルの個数)
+        row_image_count = 0
+        row_chunk_count = 0
+        current_y = 0
+        # for rowi, row in sorted(images.items()):
+        for i, row_key in enumerate(sorted(row2vnum.keys())):
+            if row2vnum[row_key] < 1:
                 continue
 
-            matchObj = re.match("([A-Z])-(\d+)_fld_(\d+)_wv_([^.]+)", filename)
-            row = matchObj.group(1)
-            col = matchObj.group(2)
-            # rowi = ord(row) - 65
-            # coli = int(col) - 1
-            fld = matchObj.group(3).zfill(2)
-            # fldi = int(fld) - 1
-            wav = matchObj.group(4)
-            # logger.debug("row = " + row)
-            # logger.debug("col = " + col)
-            # logger.debug("rowi= " + str(rowi))
-            # logger.debug("coli= " + str(coli))
-            # logger.debug("fld = " + fld)
-            # logger.debug("wav = " + wav)
-            images[row] = {} if images.has_key(row) is not None else images[row]
-            images[row][col] = {} if images[row].has_key(col) is not None else images[row][col]
-            images[row][col][fld] = {} if images[row][col].has_key(fld) is not None else images[row][col][fildi]
-            # images[row][col][fld][wav] = img_obj
-            images[row][col][fld][wav] = filename
 
-        logger.debug(pp.pformat(images))
+            # col_image_count = -col2hnum["01"]
+            # col_chunk_count = -1
+            col_image_count = 0
+            col_chunk_count = 0
+            current_x = 0
+            for j, col_key in enumerate(sorted(col2hnum.keys())):
+                if col2hnum[col_key] < 1:
+                    continue
 
-        for rowi, row in sorted(images.items()):
-            # row = images[rowi]
-            for coli, col in sorted(row.items()):
-                # col = images[rowi][coli]
-                for fldi, fld in sorted(col.items()):
-                    # fld = images[rowi][coli][fldi]
-                    for wav, fname in sorted(fld.items()):
-                        logger.debug("wav = " + wav)
-                        logger.debug("filename = " + fname)
+                if images[row_key].has_key(col_key):
+                    img_table = images[row_key][col_key]
+                    # x は col_image_count * width 
+                    if self.options.direction == "horizontal":
+                        x = col_image_count * (max_image_width  + self.options.filterspace) + col_chunk_count * (self.options.hspace - self.options.filterspace)
+                        y = row_image_count * (max_image_height + self.options.fieldspace)  + row_chunk_count * (self.options.vspace - self.options.fieldspace)
+                    else:
+                        x = col_image_count * (max_image_width  + self.options.fieldspace)  + col_chunk_count * (self.options.hspace - self.options.fieldspace)
+                        y = row_image_count * (max_image_height + self.options.filterspace) + row_chunk_count * (self.options.vspace - self.options.filterspace)
+                    self.align_images(img_table, x, y, max_image_width, max_image_height, filter_direction=self.options.direction)
+                col_image_count += col2hnum[col_key]
+                col_chunk_count += 1
+
+            row_image_count += row2vnum[row_key]
+            row_chunk_count += 1
 
 
 
-
-        # logger.debug(self.options.angle)
-        # logger.debug(self.options.direction)
-        # logger.debug("self.selectedid = " + str(self.options.ids))
-        # logger.debug("self.getdocids() = " + str(self.getdocids()))
-        # logger.debug("doc_ids = " + str(self.doc_ids))
-        # logger.debug("getElementById(\"image4207\") = " + str(self.getElementById("image4207")))
-        # img_obj = self.getElementById("image4207")
-        # logger.debug(etree.tostring(img_obj))
-        # logger.debug(str(img_obj.get("x")))
-        # img_obj.set("x", "0")
-        # logger.debug(str(img_obj.get("x")))
-        # u = simpletransform.composeParents( img, simpletransform.parseTransform( None ) ) + [[ 0, 0, 1 ]]
-
-    # def getMarker( self, ind1, ind2 ):
-    #     """
-    #     Make a marker ind1: index of image to align, ind2: number of marker
-    #     every marker is a group with an arrow and a label
-    #     """
-    #     #create a group element to place the text and arrow in
-    #     group = inkex.etree.Element( 'g' )
-    #     group.set( 'id', 'alignmarkgroup%i%i' % ( ind1, ind2 ) )
-    #     #style for both the arrow and the label
-    #     style = { 'stroke' : 'none', 'stroke-width' : '0', 'fill-opacity' : '.5', 'fill' : self.color_list[ ind1 ] }
-    #     style = simplestyle.formatStyle( style )
-    #     #path for the arrow
-    #     arrow_path = 'm 0,0 0,5 5,0 z'
-    #     inkex.etree.SubElement( group, 'path', { 'style' : style, 'd' : arrow_path } ).set( 'id', 'alignmark%i%i' % ( ind1, ind2 ) )
-    #     inkex.etree.SubElement( group, 'text', { 'style' : style } ).text = str( ind2 )
-    #     return( group )
-    #
-    # def cleanup( self ):
-    #     """
-    #     Delet previous align layers and markers
-    #     """
-    #     la = self.getElementById( "alignlayera" )
-    #     lb = self.getElementById( "alignlayerb" )
-    #     if la is not None:
-    #         la.getparent().remove(la)
-    #     if lb is not None:
-    #         lb.getparent().remove(lb)
-    #
-    #     #some marks might have been moved to other layers
-    #     for i in range( 3 ):
-    #         for j in range( 1, self.options.markernum + 1 ):
-    #             marker_group = self.getElementById( "alignmarkgroup%i%i" % (i, j) )
-    #             if marker_group is not None:
-    #                 marker_group.getparent().remove( marker_group )
-    #
-    #
-    # def putMarkers( self ):
-    #     """
-    #     Put 3 markers on svg, for every image, and 3 for target
-    #     """
-    #     #delet old marks
-    #     self.cleanup()
-    #     #set up layers for markers
-    #     svg = self.document.getroot()
-    #     layera = inkex.etree.SubElement( svg, "g" )
-    #     layera.set( 'id', 'alignlayera' )
-    #     layera.set( inkex.addNS( "label", "inkscape" ), "Align Layer A" )
-    #     layera.set( inkex.addNS( "groupmode", "inkscape" ), "layer" )
-    #     layerb = inkex.etree.SubElement( svg, "g" )
-    #     layerb.set( 'id', 'alignlayerb' )
-    #     layerb.set( inkex.addNS( "label", "inkscape" ), "Align Layer B" )
-    #     layerb.set( inkex.addNS( "groupmode", "inkscape" ), "layer" )
-    #     #draw markers
-    #     for i in range( 3 ):
-    #         ma = self.getMarker( 0, i )
-    #         ma.set( 'transform', 'translate(%i  0)' % 20 * i )
-    #         layera.append( ma )
-    #         for j in range( 1, self.options.markernum + 1 ):
-    #             mb = self.getMarker( j, i )
-    #             mb.set( 'transform', 'translate(%i %i)' % ( i*20, j*30 ) )
-    #             layerb.append( mb )
-    #
-    # def alignImage( self ):
-    #     """
-    #     Align image based on the real backtransformed coords of the markers
-    #     """
-    #     points = { }
-    #     for i in range( self.options.markernum + 1):
-    #         points[ i ] = [ ]
-    #         for j in range( 3 ):
-    #             r = self.getElementById( 'alignmark%i%i' % ( i, j ) )
-    #             #get the point marker points to from boundingbox's corner
-    #             if r is not None:
-    #                 bb = simpletransform.computeBBox( [r] )
-    #             else:
-    #                 raise( BaseException( "Can't find alignmark%i%i" % ( i, j ) ) )
-    #             x = bb[0]
-    #             y = bb[3]
-    #             #use 3x3 matrix convention, numpy wants that, simleTransform honeybadger
-    #             point = [ x, y, 1 ]
-    #             #get transforms on point
-    #             a = simpletransform.composeParents( r, simpletransform.parseTransform( None ) ) 
-    #             #apply to stored coords not real etree object
-    #             simpletransform.applyTransformToPoint( a , point )
-    #             points[i].append( point )
-    #        
-    #         if i != 0:
-    #             #get 3x3 numpy transform matrix
-    #             a = np.matrix( points[ 0 ], dtype = float ).getT()
-    #             b = np.matrix( points[ i ], dtype = float ).getT()
-    #             t = ( a * b.getI() )
-    #             for j in range( 3 ):
-    #                 r = self.getElementById( 'alignmarkgroup%i%i' % ( i, j ) )
-    #                 #transform markes 
-    #                 simpletransform.applyTransformToNode( t.tolist(), r )
-    #             #get the image we're working on
-    #             img = self.getElementById( self.options.alignid + str( i ) )
-    #             if img is not None:
-    #                 #parents transform will always get apply after nodes own, but t should be applied to already transformed coordinates
-    #                 u = simpletransform.composeParents( img, simpletransform.parseTransform( None ) ) + [[ 0, 0, 1 ]]
-    #                 u = np.matrix( u, dtype = float )
-    #                 v =  u.getI() * t * u
-    #                 simpletransform.applyTransformToNode( v.tolist() , img )
-    #             else:
-    #                 logger.warning( "Could not find %s" % self.options.alignid + str( i ) )
-    #
-    # def effect( self ):
-    #     """
-    #     Effect behaviour.
-    #     Overrides base class method.
-    #     """
-    #     logger.debug( "Effecting started" )
-    #     if self.options.start == 'start':
-    #         self.putMarkers( )
-    #     else:
-    #         self.alignImage( )
 
 
 
 # Create effect instance and apply it.
-logger.debug(len(sys.argv))
-# if len(sys.argv) == 1:
-#     sys.argv = [ './platealign.py', '--angle=0', '--direction=horizontal', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
-    # inkex.Effect.svg_file = '/home/yfujita/work/bin/python/inkscape/platealign/test.svg'
-
-
-
-
+# logger.debug(len(sys.argv))
 
 if len(sys.argv) == 1:
-    sys.argv = [ './platealign.py', '--angle=0', '--direction=horizontal', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
+    # sys.argv = [ './platealign.py', '--angle=0', '--direction=horizontal', '--hspace=10', '--vspace=20', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
+    sys.argv = [ './platealign.py', '--id=image4757', '--angle=90', '--direction=vertical', '--hspace=10', '--vspace=20', '--filterspace=2', '--fieldspace=5', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
 
 logger.debug( "Started with: {}.".format( str( sys.argv ) ) )
 effect = ImageAlignEffect()

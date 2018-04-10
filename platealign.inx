@@ -10,10 +10,16 @@
   <param name="angle" type="enum" _gui-text="Angle:">
     <_item value="0">No rotate</_item> <_item value="90">Rotate 90 degree</_item> <_item value="180">Rotate 180 degree</_item> <_item value="270">Rotate 270 degree</_item>
   </param>
+  <param name="width" type="int" min="0" max="60000" _gui-text="Resize image width (px):">0</param>
+  <param name="filterspace" type="int" min="0" max="60000" _gui-text="Space between each filter (px):">2</param>
+  <param name="fieldspace"  type="int" min="0" max="60000" _gui-text="Space between each field (px):">5</param>
+  <param name="hspace" type="int" min="0" max="60000" _gui-text="horizontal space (px):">5</param>
+  <param name="vspace" type="int" min="0" max="60000" _gui-text="vertical space (px):">5</param>
 
   <param name="direction" type="enum" _gui-text="Filter align:">
     <_item value="horizontal">Horizontal</_item><_item value="vertical">Vertical</_item>
   </param>
+
 
 	<param name="selectedonly" type="boolean" _gui-text="Align only selected images">false</param>
 
