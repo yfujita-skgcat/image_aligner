@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 '''
-Copyright (C) 2017 Matyas Kocsis, matyilona@openmailbox.org
+Copyright (C) 2018 Yoshihiko Fujita, yoshihiko.fujita@cira.kyoto-u.ac.jp
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 barraud@math.univ-lille1.fr
 
-Extension for aligning multiple bitmap images, by selecting the same points on them.
+Extension for aligning multiple Cytell images.
 '''
 
 # These two lines are only needed if you don't put the script directly into
@@ -118,7 +118,7 @@ class ImageAlignEffect( inkex.Effect ):
     def align_images(self, images, x, y, width, height, filter_direction="horizontal"):
         filter2index = {
                 'Transillumination-Blank1': 1,
-                'DAPI - DAPI': 2,
+                'DAPI-DAPI': 2,
                 'FITC-FITC': 3,
                 'Cy3-Cy3': 4,
                 'Cy5-Cy5': 5,
