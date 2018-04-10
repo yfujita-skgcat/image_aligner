@@ -213,14 +213,55 @@ class ImageAlignEffect( inkex.Effect ):
             if filename == None:
                 continue
 
-            matchObj = (re.match('([A-Z])-(\d+)_fld_(\d+)_wv_([^.]+)', filename) or re.match('([A-Z])%20-%20(\d+)\(fld%20(\d+)%20wv%20([^)]+)', filename))
-            if matchObj:
-                row = matchObj.group(1)
-                col = matchObj.group(2)
-                fld = matchObj.group(3).zfill(2)
-                wav = re.sub('%20', '', matchObj.group(4))
+            matchObj1 = (re.match('([A-Z])-(\d+)_fld_(\d+)_wv_([^.]+)', filename) or re.match('([A-Z])%20-%20(\d+)\(fld%20(\d+)%20wv%20([^)]+)', filename))
+            matchObj2 = re.match('([A-Z])[-_]?(\d+)[-_].*[-_](\d+)_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
+            matchObj3 = re.match('([A-Z])[-_]?(\d+).*_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
+            matchObj4 = re.match('(\d+)[^\d]+(\d+)_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
+            matchObj5 = re.match('(\d+).*_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
+            matchObj6 = re.match('([A-Z])(\d+)-', filename)
+
+            ix81_to_cytell_filter = {
+                    'BF'   : 'Transillumination-Blank1',
+                    'BFP'  : 'DAPI-DAPI',
+                    'NIBA' : 'FITC-FITC',
+                    'WIGA' : 'Cy3-Cy3',
+                    'CY5'  : 'Cy5-Cy5',
+                    }
+
+            if   matchObj1:
+                row = matchObj1.group(1)
+                col = matchObj1.group(2)
+                fld = matchObj1.group(3).zfill(2)
+                wav = re.sub('%20', '', matchObj1.group(4))
+            elif matchObj2:
+                row = matchObj2.group(1)
+                col = matchObj2.group(2)
+                fld = matchObj2.group(3)
+                wav = ix81_to_cytell_filter[matchObj2.group(4)]
+            elif matchObj3:
+                row = matchObj3.group(1)
+                col = matchObj3.group(2)
+                fld = "01"
+                wav = ix81_to_cytell_filter[matchObj3.group(3)]
+            elif matchObj4:
+                row = "A"
+                col = matchObj4.group(1).zfill(2)
+                fld = matchObj4.group(2)
+                wav = ix81_to_cytell_filter[matchObj4.group(3)]
+            elif matchObj5:
+                row = "A"
+                col = matchObj5.group(1).zfill(2)
+                fld = "01"
+                wav = ix81_to_cytell_filter[matchObj5.group(2)]
+            elif matchObj6:
+                row = matchObj6.group(1)
+                col = matchObj6.group(2)
+                fld = "01"
+                wav = "Transillumination-Blank1"
             else:
                 continue
+
+
             images[row] = {} if not images.has_key(row) else images[row]
             images[row][col] = {} if not images[row].has_key(col) else images[row][col]
             if direction == "horizontal":
@@ -281,7 +322,7 @@ class ImageAlignEffect( inkex.Effect ):
 
     def get_vertical_max_width_table(self, table):
         col2hnum = {}
-        for i in range(1, 12):
+        for i in range(1, 25):
             col2hnum[str(i).zfill(2)] = self.get_vertical_max_width(table, str(i).zfill(2))
         return col2hnum
 
