@@ -39,15 +39,19 @@ import pprint
 
 pp = pprint.PrettyPrinter(indent=2)
 
-#a logger for debugging/warnings
 logger = logging.getLogger( "platealign" )
-logger.setLevel( 'WARNING' )
-# logger.setLevel( logging.DEBUG )
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-fh = logging.StreamHandler( sys.stderr )
-# fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='a')
-fh.setLevel( logging.DEBUG )
-fh.setFormatter(formatter)
+formatter = logging.Formatter('%(levelname)s - %(lineno)d - %(message)s')
+# debugging (True) or deployment (False)
+if False:
+    #a logger for debugging/warnings
+    logger.setLevel( logging.DEBUG )
+    fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='a')
+    fh.setLevel( logging.DEBUG )
+    fh.setFormatter(formatter)
+else:
+    logger.setLevel( 'WARNING' )
+    fh = logging.StreamHandler( sys.stderr )
+    fh.setFormatter(formatter)
 
 logger.addHandler( fh )
 logger.debug( "\n\nLogger initialized" )
@@ -73,27 +77,42 @@ class ImageAlignEffect( inkex.Effect ):
         """
         inkex.Effect.__init__( self )
 
+        self.OptionParser.add_option( '-x', '--x', action = 'store',
+          type = 'int', dest = 'x', default = '0',
+          help = 'Top left x position.' )
+
+        self.OptionParser.add_option( '-y', '--y', action = 'store',
+          type = 'int', dest = 'y', default = '0',
+          help = 'Top left y position.' )
+
         self.OptionParser.add_option( '-a', '--angle', action = 'store',
           type = 'int', dest = 'angle', default = '0',
           help = 'Rotate images.' )
+
         self.OptionParser.add_option( '-d', '--direction', action = 'store',
           type = 'string', dest = 'direction', default = 'horizontal',
           help = 'Set direction of the each filter image.' )
+
         self.OptionParser.add_option( '', '--filterspace', action = 'store',
           type = 'int', dest = 'filterspace', default = '2',
           help = 'Space between each filter' )
+
         self.OptionParser.add_option( '', '--fieldspace', action = 'store',
           type = 'int', dest = 'fieldspace', default = '5',
           help = 'Space between each field' )
+
         self.OptionParser.add_option( '-v', '--vspace', action = 'store',
           type = 'int', dest = 'vspace', default = '5',
           help = 'Set vertical space between images.' )
+
         self.OptionParser.add_option( '', '--hspace', action = 'store',
           type = 'int', dest = 'hspace', default = '5',
           help = 'Set horizontal space between images.' )
+
         self.OptionParser.add_option( '-w', '--width', action = 'store',
           type = 'float', dest = 'width', default = '5',
           help = 'Scaling width of images.' )
+
         self.OptionParser.add_option("-s", "--selectedonly",
             action="store", type="inkbool", 
             dest="selectedonly", default=False,
@@ -218,7 +237,7 @@ class ImageAlignEffect( inkex.Effect ):
             matchObj3 = re.match('([A-Z])[-_]?(\d+).*_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
             matchObj4 = re.match('(\d+)[^\d]+(\d+)_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
             matchObj5 = re.match('(\d+).*_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
-            matchObj6 = re.match('([A-Z])(\d+)-', filename)
+            matchObj6 = re.match('([A-Z])(\d+)[-_]', filename)
 
             ix81_to_cytell_filter = {
                     'BF'   : 'Transillumination-Blank1',
@@ -350,7 +369,9 @@ class ImageAlignEffect( inkex.Effect ):
         space_wav = 2
 
         if self.options.selectedonly:
+            rp = re.compile('image\d+')
             image_ids = self.options.ids
+            image_ids = [x for x in image_ids if rp.match(x)]
         else:
             image_ids = map(lambda x: x.get("id"), self.document.getroot().xpath('//svg:image', namespaces=inkex.NSS))
 
@@ -366,6 +387,19 @@ class ImageAlignEffect( inkex.Effect ):
         col2hnum = self.get_vertical_max_width_table(images)
         # logger.debug("row2vnum = " + pp.pformat(row2vnum))
         # logger.debug("col2hnum = " + pp.pformat(col2hnum))
+
+        x_coeffi = {
+                0:  0,
+                90: 1,
+                180: 1,
+                270: 0
+                }
+        y_coeffi = {
+                0:  0,
+                90: 0,
+                180: 1,
+                270: 1
+                }
 
 
         # 左上から並べていくんだが左上を(0,0)として
@@ -394,11 +428,11 @@ class ImageAlignEffect( inkex.Effect ):
                     img_table = images[row_key][col_key]
                     # x は col_image_count * width 
                     if self.options.direction == "horizontal":
-                        x = col_image_count * (max_image_width  + self.options.filterspace) + col_chunk_count * (self.options.hspace - self.options.filterspace)
-                        y = row_image_count * (max_image_height + self.options.fieldspace)  + row_chunk_count * (self.options.vspace - self.options.fieldspace)
+                        x = self.options.x + max_image_width * x_coeffi[self.options.angle] + col_image_count * (max_image_width  + self.options.filterspace) + col_chunk_count * (self.options.hspace - self.options.filterspace)
+                        y = self.options.y + max_image_height * y_coeffi[self.options.angle] + row_image_count * (max_image_height + self.options.fieldspace)  + row_chunk_count * (self.options.vspace - self.options.fieldspace)
                     else:
-                        x = col_image_count * (max_image_width  + self.options.fieldspace)  + col_chunk_count * (self.options.hspace - self.options.fieldspace)
-                        y = row_image_count * (max_image_height + self.options.filterspace) + row_chunk_count * (self.options.vspace - self.options.filterspace)
+                        x = self.options.x + max_image_width * x_coeffi[self.options.angle] + col_image_count * (max_image_width  + self.options.fieldspace)  + col_chunk_count * (self.options.hspace - self.options.fieldspace)
+                        y = self.options.y + max_image_height * y_coeffi[self.options.angle] + row_image_count * (max_image_height + self.options.filterspace) + row_chunk_count * (self.options.vspace - self.options.filterspace)
                     self.align_images(img_table, x, y, max_image_width, max_image_height, filter_direction=self.options.direction)
                 col_image_count += col2hnum[col_key]
                 col_chunk_count += 1
@@ -418,6 +452,6 @@ if len(sys.argv) == 1:
     # sys.argv = [ './platealign.py', '--angle=0', '--direction=horizontal', '--hspace=10', '--vspace=20', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
     sys.argv = [ './platealign.py', '--id=image4757', '--angle=90', '--direction=vertical', '--hspace=10', '--vspace=20', '--filterspace=2', '--fieldspace=5', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
 
-# logger.debug( "Started with: {}.".format( str( sys.argv ) ) )
+logger.debug( "Started with: {}.".format( str( sys.argv ) ) )
 effect = ImageAlignEffect()
 effect.affect(args=sys.argv)
