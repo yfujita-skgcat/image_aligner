@@ -23,6 +23,7 @@
   </param>
 
 
+	<param name="stamp" type="boolean" _gui-text="Stampe layout">false</param>
 	<param name="selectedonly" type="boolean" _gui-text="Align only selected images">false</param>
 
   <!-- <param name="markernum" type="int" _gui-text="No. of filter">1</param> -->

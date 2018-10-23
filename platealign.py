@@ -115,6 +115,10 @@ class ImageAlignEffect( inkex.Effect ):
           type = 'float', dest = 'width', default = '5',
           help = 'Scaling width of images.' )
 
+        self.OptionParser.add_option( '', '--stamp', action = 'store',
+          type = 'inkbool', dest = 'stamp', default = False,
+          help = 'Stamp layout paramters.' )
+
         self.OptionParser.add_option("-s", "--selectedonly",
             action="store", type="inkbool", 
             dest="selectedonly", default=False,
@@ -451,6 +455,45 @@ class ImageAlignEffect( inkex.Effect ):
         # inkact.select_id(self.options.ids)
         # inkact.run_document()
 
+        if self.options.stamp:
+            parent = self.current_layer
+            text = inkex.etree.Element(inkex.addNS('text', 'svg'))
+            text.text = "x" + str(self.options.x) + "y" + str(self.options.y) + "w" + str(self.options.width) + "hs" + str(self.options.hspace) + "vs" + str(self.options.vspace)
+            text.set('x', str(self.options.x + 2))
+            text.set('y', str(self.options.y - 20)) # font が10pt だから10pt + 2 かな?
+            style = {
+                    'stroke': 'none',
+                    'stroke-width' : '1',
+                    'fill' : '#000000',
+                    'font-family': 'Arial',
+                    'font-weight': 'normal',
+                    'font-style': 'normal',
+                    'font-strech': 'normal',
+                    'font-variant': 'normal',
+                    'font-size': '12.5px' # 10pt
+                    }
+            text.set('style', simplestyle.formatStyle(style))
+
+            parent.append(text)
+
+            # attribs = {
+            #         'style': simplestyle.formatStyle(style),
+            #         'height':
+
+# # Create text element
+#         text = inkex.etree.Element(inkex.addNS('text','svg'))
+#         text.text = str(textStr)
+#
+#         # Set text position to center of document.
+#         text.set('x', str(300 / 2))
+#         text.set('y', str(300 / 2))
+#
+#         # Center text horizontally with CSS style.
+#         style = {'text-align' : 'center', 'text-anchor': 'middle'}
+#         text.set('style', formatStyle(style))
+#
+#         # Connect elements together.
+# debugLayer.append(text)
 
 
 
