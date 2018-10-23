@@ -33,6 +33,8 @@ import numpy as np
 import math
 import logging
 
+# import synfig_prepare
+
 from lxml import etree
 import re
 import pprint
@@ -233,6 +235,7 @@ class ImageAlignEffect( inkex.Effect ):
                 continue
 
             matchObj1 = (re.match('([A-Z])-(\d+)_fld_(\d+)_wv_([^.]+)', filename) or re.match('([A-Z])%20-%20(\d+)\(fld%20(\d+)%20wv%20([^)]+)', filename))
+            matchObjRS100 = re.match('([A-Z])(\d+)-W\d+-P(\d+)-Z\d+-T\d+-([^.]+)', filename) 
             matchObj2 = re.match('([A-Z])[-_]?(\d+)[-_].*[-_](\d+)_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
             matchObj3 = re.match('([A-Z])[-_]?(\d+).*_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
             matchObj4 = re.match('(\d+)[^\d]+(\d+)_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
@@ -252,6 +255,11 @@ class ImageAlignEffect( inkex.Effect ):
                 col = matchObj1.group(2).zfill(2)
                 fld = matchObj1.group(3).zfill(2)
                 wav = re.sub('%20', '', matchObj1.group(4))
+            elif matchObjRS100:
+                row = matchObjRS100.group(1)
+                col = matchObjRS100.group(2)
+                fld = matchObjRS100.group(3)
+                wav = matchObjRS100.group(4)
             elif matchObj2:
                 row = matchObj2.group(1)
                 col = matchObj2.group(2).zfill(2)
@@ -439,7 +447,9 @@ class ImageAlignEffect( inkex.Effect ):
 
             row_image_count += row2vnum[row_key]
             row_chunk_count += 1
-
+        # inkact = synfig_prepare.InkscapeActionGroup()
+        # inkact.select_id(self.options.ids)
+        # inkact.run_document()
 
 
 
