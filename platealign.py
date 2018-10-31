@@ -119,6 +119,10 @@ class ImageAlignEffect( inkex.Effect ):
           type = 'inkbool', dest = 'stamp', default = False,
           help = 'Stamp layout paramters.' )
 
+        self.OptionParser.add_option( '', '--label', action = 'store',
+          type = 'inkbool', dest = 'label', default = False,
+          help = 'Stamp layout labels.' )
+
         self.OptionParser.add_option("-s", "--selectedonly",
             action="store", type="inkbool", 
             dest="selectedonly", default=False,
@@ -172,6 +176,14 @@ class ImageAlignEffect( inkex.Effect ):
                     xpos, ypos = self.transform_rotate_xy(xpos, ypos)
                     img_obj.set("x", str(xpos))
                     img_obj.set("y", str(ypos))
+
+        # row_n = len(row_keys)
+        # col_n = len(col_keys)
+        # row_label = (y + row_n * (height + yspace))/2
+        # col_label = (x + col_n * (height + yspace))/2
+        # logger.debug("row_label=" + str(row_label))
+        # logger.debug("row_keys=" + str(row_keys))
+        # logger.debug("col_keys=" + str(col_keys))
 
     def transform_rotate_xy(self, x, y):
         transform_matrix = {
@@ -377,8 +389,30 @@ class ImageAlignEffect( inkex.Effect ):
     # 多分このeffect()が affect() で呼ばれるんだと思う.
     def effect( self ):
 
-        # 蛍光画像間のスペース(px)
-        space_wav = 2
+        if self.options.selectedonly:
+            rp = re.compile('text\d+')
+            text_ids = self.options.ids
+            text_ids = [x for x in text_ids if rp.match(x)]
+            for text_id in text_ids:
+                text_obj = self.getElementById(text_id)
+                if self.options.label and text_obj.get(inkex.addNS('label', 'inkscape')) == 'plate_align_text':
+                    text_obj.getparent().remove(text_obj)
+                if self.options.stamp and text_obj.get(inkex.addNS('label', 'inkscape')) == 'plate_align_stamp':
+                    text_obj.getparent().remove(text_obj)
+        else:
+            if self.options.label:
+                # 最初に inkscape:label が plate_align_text のやつを削除する
+                # text.set(inkex.addNS('label', 'inkscape'), 'plate_align_text')
+                for _text in self.document.getroot().xpath('//svg:text', namespaces=inkex.NSS):
+                    if _text.get(inkex.addNS('label', 'inkscape')) == 'plate_align_text':
+                        _text.getparent().remove(_text)
+                        # self.document.getroot().remove(_text)
+
+            if self.options.stamp:
+                for _text in self.document.getroot().xpath('//svg:text', namespaces=inkex.NSS):
+                    if _text.get(inkex.addNS('label', 'inkscape')) == 'plate_align_stamp':
+                        _text.getparent().remove(_text)
+                        # self.document.getroot().remove(_text)
 
         if self.options.selectedonly:
             rp = re.compile('image\d+')
@@ -413,6 +447,12 @@ class ImageAlignEffect( inkex.Effect ):
                 270: 1
                 }
 
+        # 後で印字するようの配列
+        row_label_list = {}
+        row_label_x = float('inf')
+        col_label_list = {}
+        col_label_y = float('inf')
+
 
         # 左上から並べていくんだが左上を(0,0)として
         # row, col, fld, wav それぞれにインデックスをつけて並べていくのが良い
@@ -446,6 +486,54 @@ class ImageAlignEffect( inkex.Effect ):
                         x = self.options.x + max_image_width * x_coeffi[self.options.angle] + col_image_count * (max_image_width  + self.options.fieldspace)  + col_chunk_count * (self.options.hspace - self.options.fieldspace)
                         y = self.options.y + max_image_height * y_coeffi[self.options.angle] + row_image_count * (max_image_height + self.options.filterspace) + row_chunk_count * (self.options.vspace - self.options.filterspace)
                     self.align_images(img_table, x, y, max_image_width, max_image_height, filter_direction=self.options.direction)
+
+                    text_x = x - max_image_width * x_coeffi[self.options.angle]
+                    text_y = y - max_image_height * y_coeffi[self.options.angle]
+                    
+                    if not col_label_list.has_key(col_key):
+                        text = inkex.etree.Element(inkex.addNS('text', 'svg'))
+                        text.text = col_key
+                        text.set('x', str(text_x + col2hnum[col_key] * max_image_width/2 - 8 ))
+                        if col_label_y > text_y:
+                            col_label_y = text_y
+                        # text.set('y', str(y-10))
+                        text.set(inkex.addNS('label', 'inkscape'), 'plate_align_text')
+                        style = {
+                                'stroke': 'none',
+                                'stroke-width' : '1',
+                                'fill' : '#000000',
+                                'font-family': 'Arial',
+                                'font-weight': 'normal',
+                                'font-style': 'normal',
+                                'font-strech': 'normal',
+                                'font-variant': 'normal',
+                                'font-size': '16px' #
+                                }
+                        text.set('style', simplestyle.formatStyle(style))
+                        col_label_list[col_key] = text
+
+                    if not row_label_list.has_key(row_key):
+                        text = inkex.etree.Element(inkex.addNS('text', 'svg'))
+                        text.text = row_key
+                        if row_label_x > text_x:
+                            row_label_x = text_x
+                        # text.set('x', str(x-16))
+                        text.set('y', str(text_y + row2vnum[row_key] * max_image_height/2 + 8))
+                        text.set(inkex.addNS('label', 'inkscape'), 'plate_align_text')
+                        style = {
+                                'stroke': 'none',
+                                'stroke-width' : '1',
+                                'fill' : '#000000',
+                                'font-family': 'Arial',
+                                'font-weight': 'normal',
+                                'font-style': 'normal',
+                                'font-strech': 'normal',
+                                'font-variant': 'normal',
+                                'font-size': '16px' #
+                                }
+                        text.set('style', simplestyle.formatStyle(style))
+                        row_label_list[row_key] = text
+
                 col_image_count += col2hnum[col_key]
                 col_chunk_count += 1
 
@@ -455,12 +543,24 @@ class ImageAlignEffect( inkex.Effect ):
         # inkact.select_id(self.options.ids)
         # inkact.run_document()
 
-        if self.options.stamp:
+        # ラベルを印字する
+        if self.options.label:
+            parent = self.current_layer
+            for _text in col_label_list.itervalues():
+                _text.set('y', str(col_label_y - 10))
+                parent.append(_text)
+            for _text in row_label_list.itervalues():
+                _text.set('x', str(row_label_x - 16))
+                parent.append(_text)
+
+
+        if self.options.stamp: # 並び方のパラメータを印字
             parent = self.current_layer
             text = inkex.etree.Element(inkex.addNS('text', 'svg'))
             text.text = "x" + str(self.options.x) + "y" + str(self.options.y) + "w" + str(self.options.width) + "hs" + str(self.options.hspace) + "vs" + str(self.options.vspace)
             text.set('x', str(self.options.x + 2))
-            text.set('y', str(self.options.y - 20)) # font が10pt だから10pt + 2 かな?
+            text.set('y', str(self.options.y - 26)) # font が10pt だから10pt + 2 かな?
+            text.set(inkex.addNS('label', 'inkscape'), 'plate_align_stamp')
             style = {
                     'stroke': 'none',
                     'stroke-width' : '1',
@@ -476,27 +576,6 @@ class ImageAlignEffect( inkex.Effect ):
 
             parent.append(text)
 
-            # attribs = {
-            #         'style': simplestyle.formatStyle(style),
-            #         'height':
-
-# # Create text element
-#         text = inkex.etree.Element(inkex.addNS('text','svg'))
-#         text.text = str(textStr)
-#
-#         # Set text position to center of document.
-#         text.set('x', str(300 / 2))
-#         text.set('y', str(300 / 2))
-#
-#         # Center text horizontally with CSS style.
-#         style = {'text-align' : 'center', 'text-anchor': 'middle'}
-#         text.set('style', formatStyle(style))
-#
-#         # Connect elements together.
-# debugLayer.append(text)
-
-
-
 
 # Create effect instance and apply it.
 # logger.debug(len(sys.argv))
@@ -505,6 +584,6 @@ if len(sys.argv) == 1:
     # sys.argv = [ './platealign.py', '--angle=0', '--direction=horizontal', '--hspace=10', '--vspace=20', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
     sys.argv = [ './platealign.py', '--id=image4757', '--angle=90', '--direction=vertical', '--hspace=10', '--vspace=20', '--filterspace=2', '--fieldspace=5', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
 
-logger.debug( "Started with: {}.".format( str( sys.argv ) ) )
+# logger.debug( "Started with: {}.".format( str( sys.argv ) ) )
 effect = ImageAlignEffect()
 effect.affect(args=sys.argv)
