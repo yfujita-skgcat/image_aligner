@@ -257,6 +257,7 @@ class ImageAlignEffect( inkex.Effect ):
             matchObj4 = re.match('(\d+)[^\d]+(\d+)_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
             matchObj5 = re.match('(\d+).*_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
             matchObj6 = re.match('([A-Z])(\d+)[-_]', filename)
+            matchObj7 = re.match('([A-Z])(\d+)\.(jpg|tif|png)', filename)
 
             ix81_to_cytell_filter = {
                     'BF'   : 'Transillumination-Blank1',
@@ -299,6 +300,11 @@ class ImageAlignEffect( inkex.Effect ):
             elif matchObj6:
                 row = matchObj6.group(1)
                 col = matchObj6.group(2)
+                fld = "01"
+                wav = "Transillumination-Blank1"
+            elif matchObj7:
+                row = matchObj7.group(1)
+                col = matchObj7.group(2)
                 fld = "01"
                 wav = "Transillumination-Blank1"
             else:
