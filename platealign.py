@@ -44,7 +44,7 @@ pp = pprint.PrettyPrinter(indent=2)
 logger = logging.getLogger( "platealign" )
 formatter = logging.Formatter('%(levelname)s - %(lineno)d - %(message)s')
 # debugging (True) or deployment (False)
-if False:
+if True:
     #a logger for debugging/warnings
     logger.setLevel( logging.DEBUG )
     fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='a')
@@ -150,6 +150,58 @@ class ImageAlignEffect( inkex.Effect ):
                 'FITC-FITC': 3,
                 'Cy3-Cy3': 4,
                 'Cy5-Cy5': 5,
+                'DAPI-DAPI-Transillumination-Blank1': 6,
+                'FITC-FITC-Transillumination-Blank1': 7,
+                'Cy3-Cy3-Transillumination-Blank1': 8,
+                'Cy5-Cy5-Transillumination-Blank1': 9,
+                'DAPI-DAPI-FITC-FITC': 10,
+                'Cy3-Cy3-DAPI-DAPI': 11,
+                'Cy5-Cy5-DAPI-DAPI': 12,
+                'Cy3-Cy3-FITC-FITC': 13,
+                'Cy5-Cy5-FITC-FITC': 14,
+                'Cy3-Cy3-Cy5-Cy5': 15,
+                'tgt_DAPI-DAPI_ref_Transillumination-Blank1': 16,
+                'tgt_FITC-FITC_ref_Transillumination-Blank1': 17,
+                'tgt_Cy3-Cy3_ref_Transillumination-Blank1': 18,
+                'tgt_Cy5-Cy5_ref_Transillumination-Blank1': 19,
+                'tgt_DAPI-DAPI_ref_FITC-FITC': 20,
+                'tgt_Cy3-Cy3_ref_DAPI-DAPI': 21,
+                'tgt_Cy5-Cy5_ref_DAPI-DAPI': 22,
+                'tgt_Cy3-Cy3_ref_FITC-FITC': 23,
+                'tgt_Cy5-Cy5_ref_FITC-FITC': 24,
+                'tgt_Cy3-Cy3_ref_Cy5-Cy5': 25,
+                'DAPI-DAPI-FITC-FITC-Transillumination-Blank1': 26,
+                'Cy3-Cy3-DAPI-DAPI-Transillumination-Blank1': 27,
+                'Cy5-Cy5-DAPI-DAPI-Transillumination-Blank1': 28,
+                'Cy3-Cy3-FITC-FITC-Transillumination-Blank1': 29,
+                'Cy5-Cy5-FITC-FITC-Transillumination-Blank1': 30,
+                'Cy3-Cy3-Cy5-Cy5-Transillumination-Blank1': 31,
+                'Cy3-Cy3-DAPI-DAPI-FITC-FITC': 32,
+                'Cy5-Cy5-DAPI-DAPI-FITC-FITC': 33,
+                'Cy3-Cy3-Cy5-Cy5-DAPI-DAPI': 34,
+                'Cy3-Cy3-Cy5-Cy5-FITC-FITC': 35,
+                'tgt_DAPI-DAPI_ref_FITC-FITC_ref_Transillumination-Blank1': 36,
+                'tgt_Cy3-Cy3_ref_DAPI-DAPI_ref_Transillumination-Blank1': 37,
+                'tgt_Cy5-Cy5_ref_DAPI-DAPI_ref_Transillumination-Blank1': 38,
+                'tgt_Cy3-Cy3_ref_FITC-FITC_ref_Transillumination-Blank1': 39,
+                'tgt_Cy5-Cy5_ref_FITC-FITC_ref_Transillumination-Blank1': 40,
+                'tgt_Cy3-Cy3_ref_Cy5-Cy5_ref_Transillumination-Blank1': 41,
+                'tgt_Cy3-Cy3_ref_DAPI-DAPI_ref_FITC-FITC': 42,
+                'tgt_Cy5-Cy5_ref_DAPI-DAPI_ref_FITC-FITC': 43,
+                'tgt_Cy3-Cy3_ref_Cy5-Cy5_ref_DAPI-DAPI': 44,
+                'tgt_Cy3-Cy3_ref_Cy5-Cy5_ref_FITC-FITC': 45,
+                'Cy3-Cy3-DAPI-DAPI-FITC-FITC-Transillumination-Blank1': 46,
+                'Cy5-Cy5-DAPI-DAPI-FITC-FITC-Transillumination-Blank1': 47,
+                'Cy3-Cy3-Cy5-Cy5-DAPI-DAPI-Transillumination-Blank1': 48,
+                'Cy3-Cy3-Cy5-Cy5-FITC-FITC-Transillumination-Blank1': 49,
+                'Cy3-Cy3-Cy5-Cy5-DAPI-DAPI-FITC-FITC': 50,
+                'tgt_Cy3-Cy3_ref_DAPI-DAPI_ref_FITC-FITC_ref_Transillumination-Blank1': 51,
+                'tgt_Cy5-Cy5_ref_DAPI-DAPI_ref_FITC-FITC_ref_Transillumination-Blank1': 52,
+                'tgt_Cy3-Cy3_ref_Cy5-Cy5_ref_DAPI-DAPI_ref_Transillumination-Blank1': 53,
+                'tgt_Cy3-Cy3_ref_Cy5-Cy5_ref_FITC-FITC_ref_Transillumination-Blank1': 54,
+                'tgt_Cy3-Cy3_ref_Cy5-Cy5_ref_DAPI-DAPI_ref_FITC-FITC': 55,
+                'Cy3-Cy3-Cy5-Cy5-DAPI-DAPI-FITC-FITC-Transillumination-Blank1': 56,
+                'tgt_Cy3-Cy3_ref_Cy5-Cy5_ref_DAPI-DAPI_ref_FITC-FITC_ref_Transillumination-Blank1': 57,
                 }
         col_keys = []
         for i, row in sorted(images.items()):
