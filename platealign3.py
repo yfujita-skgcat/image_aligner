@@ -460,7 +460,8 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
             text_ids = self.options.ids
             text_ids = [x for x in text_ids if rp.match(x)]
             for text_id in text_ids:
-                text_obj = self.getElementById(text_id)
+                # text_obj = self.getElementById(text_id)
+                text_obj = self.svg.getElementById(text_id)
                 if self.options.label and text_obj.get(inkex.addNS('label', 'inkscape')) == 'plate_align_text':
                     text_obj.getparent().remove(text_obj)
                 if self.options.stamp and text_obj.get(inkex.addNS('label', 'inkscape')) == 'plate_align_stamp':
@@ -618,17 +619,21 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
 
         # ラベルを印字する
         if self.options.label:
-            parent = self.current_layer
-            for _text in col_label_list.itervalues():
+            # parent = self.current_layer
+            parent = self.svg.get_current_layer()
+            # for _text in col_label_list.itervalues():
+            for _text in col_label_list.values():
                 _text.set('y', str(col_label_y - 10))
                 parent.append(_text)
-            for _text in row_label_list.itervalues():
+            # for _text in row_label_list.itervalues():
+            for _text in row_label_list.values():
                 _text.set('x', str(row_label_x - 16))
                 parent.append(_text)
 
 
         if self.options.stamp: # 並び方のパラメータを印字
-            parent = self.current_layer
+            # parent = self.current_layer
+            parent = self.svg.get_current_layer()
             # text = inkex.etree.Element(inkex.addNS('text', 'svg'))
             text = etree.Element(inkex.addNS('text', 'svg'))
             text.text = "x" + str(self.options.x) + "y" + str(self.options.y) + "w" + str(self.options.width) + "hs" + str(self.options.hspace) + "vs" + str(self.options.vspace)
