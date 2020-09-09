@@ -201,7 +201,47 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
                 'tgt_FITC-FITC_ref_Cy5-Cy5': 40,
                 'tgt_Cy5-Cy5_ref_FITC-FITC': 40,
                 'tgt_Cy3-Cy3_ref_Cy5-Cy5': 41,
-                'tgt_Cy5-Cy5_ref_Cy3-Cy3': 41
+                'tgt_Cy5-Cy5_ref_Cy3-Cy3': 41,
+                'Transillumination-Blank1_div_DAPI-DAPI': 32,
+                'DAPI-DAPI_div_Transillumination-Blank1': 32,
+                'Transillumination-Blank1_div_FITC-FITC': 33,
+                'FITC-FITC_div_Transillumination-Blank1': 33,
+                'Transillumination-Blank1_div_Cy3-Cy3':   34,
+                'Cy3-Cy3_div_Transillumination-Blank1':   34,
+                'Transillumination-Blank1_div_Cy5-Cy5':   35,
+                'Cy5-Cy5_div_Transillumination-Blank1':   35,
+                'DAPI-DAPI_div_FITC-FITC':                36,
+                'FITC-FITC_div_DAPI-DAPI':                36,
+                'DAPI-DAPI_div_Cy3-Cy3':                  37,
+                'Cy3-Cy3_div_DAPI-DAPI':                  37,
+                'DAPI-DAPI_div_Cy5-Cy5':                  38,
+                'Cy5-Cy5_div_DAPI-DAPI':                  38,
+                'FITC-FITC_div_Cy3-Cy3':                  39,
+                'Cy3-Cy3_div_FITC-FITC':                  39,
+                'FITC-FITC_div_Cy5-Cy5':                  40,
+                'Cy5-Cy5_div_FITC-FITC':                  40,
+                'Cy3-Cy3_div_Cy5-Cy5':                    41,
+                'Cy5-Cy5_div_Cy3-Cy3':                    41,
+                '4': 50,
+                '04': 50,
+                '1': 51,
+                '2': 52,
+                '3': 53,
+                '01': 51,
+                '02': 52,
+                '03': 53,
+                '1-4': 54,
+                '2-4': 55,
+                '3-4': 56,
+                '01-04': 54,
+                '02-04': 55,
+                '03-04': 56,
+                '1-2-4': 57,
+                '1-3-4': 58,
+                '01-02-04': 57,
+                '01-03-04': 58,
+                '1-2-3-4': 59,
+                '01-02-03-04': 59
                 }
         col_keys = []
         for i, row in sorted(images.items()):
@@ -310,8 +350,10 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
             matchObj3 = re.match('([A-Z])[-_]?(\d+).*_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
             matchObj4 = re.match('(\d+)[^\d]+(\d+)_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
             matchObj5 = re.match('(\d+).*_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
-            matchObj6 = re.match('([A-Z])(\d+)[-_]', filename)
-            matchObj7 = re.match('([A-Z])(\d+)\.(jpg|tif|png)', filename)
+            matchObj6 = re.match('([A-Z])[-_]?(\d+)[-_]?F(\d+).*C([\d-]+)\.', filename)
+
+            matchObj_def1 = re.match('([A-Z])(\d+)[-_]', filename)
+            matchObj_def2 = re.match('([A-Z])(\d+)\.(jpg|tif|png)', filename)
 
             ix81_to_cytell_filter = {
                     'BF'   : 'Transillumination-Blank1',
@@ -353,12 +395,17 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
                 wav = ix81_to_cytell_filter[matchObj5.group(2)]
             elif matchObj6:
                 row = matchObj6.group(1)
-                col = matchObj6.group(2)
+                col = matchObj6.group(2).zfill(2)
+                fld = matchObj6.group(3).zfill(2)
+                wav = matchObj6.group(4)
+            elif matchObj_def1:
+                row = matchObj_def1.group(1)
+                col = matchObj_def1.group(2)
                 fld = "01"
                 wav = "Transillumination-Blank1"
-            elif matchObj7:
-                row = matchObj7.group(1)
-                col = matchObj7.group(2)
+            elif matchObj_def2:
+                row = matchObj_def2.group(1)
+                col = matchObj_def2.group(2)
                 fld = "01"
                 wav = "Transillumination-Blank1"
             else:
