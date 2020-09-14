@@ -46,7 +46,7 @@ pp = pprint.PrettyPrinter(indent=2)
 logger = logging.getLogger( "platealign" )
 formatter = logging.Formatter('%(levelname)s - %(lineno)d - %(message)s')
 # debugging (True) or deployment (False)
-if True:
+if False:
     #a logger for debugging/warnings
     logger.setLevel( logging.DEBUG )
     fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='a')
@@ -71,10 +71,53 @@ logger.debug( "\n\nLogger initialized" )
 #     self.effect()
 #     if output: self.output()
 
+# フィルタ名でファイルをソートするときに使用する関数
+# それっぽいキーワードにマッチしたらそのindexを数値で返す
+# 基本的に透過光 -> 短い波長から という順で値が大きくなるようにしてソート関数で使えるようにする
+# 複数のフィルタ名にマッチする場合(tagBFP-iRFP670)合算する?
+# 方針としてはフィルタ名(一部keyword)にマッチしたら2^n を合算して返却することで同じ数値にならないようにする.
+# BFP-iRFP670 と iRFP670-BFP は同じ値になる
+def filter2index(filter_name):
+    index = 0
+    filters = ['C1', 'BF', 'Transillumination',
+            'C2', 'DAPI', 'BFP',
+            'C3', 'NIBA', 'FITC', 'GFP',
+            'C4', 'WIGA', 'Cy3', 'tagRFP', 'mCherry',
+            'C5', 'Cy5', 'iRFP670']
+    filters = [".*" + s for s in filters]
+    # logger.debug("filter_name=" + filter_name)
+    for fi, fname in enumerate(filters):
+        logger.debug(str(fi) + ":検索文字列: " + fname + ", フィルタ名: " + filter_name)
+        if re.match(fname, filter_name, flags=re.IGNORECASE):
+            # logger.debug("fi=" + str(fi))
+            index = index + 2 ** fi
+            # logger.debug("fname=" + fname)
+            # logger.debug("current index=" + str(index))
+    # logger.debug("index=" + str(index))
+    return index
+
+
+
 class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
     """
     Either draw marks for alignment, or align images
     """
+    # ファイルのwell数、フィルタ名などを見つけるための正規表現を先にコンパイルしておく.
+    # ここはmap後にlistにしないとイテレーターとして扱われる。そうすると、一度取得した値を繰り返し使えないので、
+    # list化を忘れずに
+    file_regexps = list(map(re.compile, [
+        '^.*(?P<ROW>[A-Z])-(?P<COL>\d+)_fld_(?P<FLD>\d+)_wv_(?P<FLT>[^.]+).*$',
+        '^.*(?P<ROW>[A-Z])%20-%20(?P<COL>\d+)\(fld%20(?P<FLD>\d+)%20wv%20(?P<FLT>[^)]+).*$',
+        '^.*(?P<ROW>[A-Z])(?P<COL>\d+)-W\d+-P(?P<FLD>\d+)-Z\d+-T\d+-(?P<FLT>[^.]+)',
+        '^.*(?P<ROW>[A-Z])[-_]?(?P<COL>\d+)[-_].*[-_](?P<FLD>\d+)_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
+        '^.*(?P<ROW>[A-Z])[-_]?(?P<COL>\d+).*_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
+        '^.*(?P<ROW>\d+).*_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
+        '^.*(?P<ROW>[A-Z])[-_]?(?P<COL>\d+)[-_]?F(?P<FLD>\d+).*(?P<FLT>C[\d-]+)\..*$',
+
+        '^.*(?P<ROW>[A-Z])(?P<COL>\d+)[-_].*',
+        '^.*(?P<ROW>[A-Z])(?P<COL>\d+)\.(jpg|tif|png).*'
+            ]))
+
     def __init__( self ):
         """
         Setting stuff up
@@ -150,111 +193,20 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
     # filt3 [img31, -----, img33,...]
     # を並べる
     def align_images(self, images, x, y, width, height, filter_direction="horizontal"):
-        filter2index = {
-                'Transillumination-Blank1': 1,
-                'DAPI-DAPI': 2,
-                'FITC-FITC': 3,
-                'Cy3-Cy3': 4,
-                'Cy5-Cy5': 5,
-                'DAPI-DAPI-Transillumination-Blank1': 6,
-                'FITC-FITC-Transillumination-Blank1': 7,
-                'Cy3-Cy3-Transillumination-Blank1': 8,
-                'Cy5-Cy5-Transillumination-Blank1': 9,
-                'DAPI-DAPI-FITC-FITC': 10,
-                'Cy3-Cy3-DAPI-DAPI': 11,
-                'Cy5-Cy5-DAPI-DAPI': 12,
-                'Cy3-Cy3-FITC-FITC': 13,
-                'Cy5-Cy5-FITC-FITC': 14,
-                'Cy3-Cy3-Cy5-Cy5': 15,
-                'DAPI-DAPI-FITC-FITC-Transillumination-Blank1': 16,
-                'Cy3-Cy3-DAPI-DAPI-Transillumination-Blank1': 17,
-                'Cy5-Cy5-DAPI-DAPI-Transillumination-Blank1': 18,
-                'Cy3-Cy3-FITC-FITC-Transillumination-Blank1': 19,
-                'Cy5-Cy5-FITC-FITC-Transillumination-Blank1': 20,
-                'Cy3-Cy3-Cy5-Cy5-Transillumination-Blank1': 21,
-                'Cy3-Cy3-DAPI-DAPI-FITC-FITC': 22,
-                'Cy5-Cy5-DAPI-DAPI-FITC-FITC': 23,
-                'Cy3-Cy3-Cy5-Cy5-DAPI-DAPI': 24,
-                'Cy3-Cy3-Cy5-Cy5-FITC-FITC': 25,
-                'Cy3-Cy3-DAPI-DAPI-FITC-FITC-Transillumination-Blank1': 26,
-                'Cy5-Cy5-DAPI-DAPI-FITC-FITC-Transillumination-Blank1': 27,
-                'Cy3-Cy3-Cy5-Cy5-DAPI-DAPI-Transillumination-Blank1': 28,
-                'Cy3-Cy3-Cy5-Cy5-FITC-FITC-Transillumination-Blank1': 29,
-                'Cy3-Cy3-Cy5-Cy5-DAPI-DAPI-FITC-FITC': 30,
-                'Cy3-Cy3-Cy5-Cy5-DAPI-DAPI-FITC-FITC-Transillumination-Blank1': 31,
-                'tgt_Transillumination-Blank1_ref_DAPI-DAPI': 32,
-                'tgt_DAPI-DAPI_ref_Transillumination-Blank1': 32,
-                'tgt_Transillumination-Blank1_ref_FITC-FITC': 33,
-                'tgt_FITC-FITC_ref_Transillumination-Blank1': 33,
-                'tgt_Transillumination-Blank1_ref_Cy3-Cy3': 34,
-                'tgt_Cy3-Cy3_ref_Transillumination-Blank1': 34,
-                'tgt_Transillumination-Blank1_ref_Cy5-Cy5': 35,
-                'tgt_Cy5-Cy5_ref_Transillumination-Blank1': 35,
-                'tgt_DAPI-DAPI_ref_FITC-FITC': 36,
-                'tgt_FITC-FITC_ref_DAPI-DAPI': 36,
-                'tgt_DAPI-DAPI_ref_Cy3-Cy3': 37,
-                'tgt_Cy3-Cy3_ref_DAPI-DAPI': 37,
-                'tgt_DAPI-DAPI_ref_Cy5-Cy5': 38,
-                'tgt_Cy5-Cy5_ref_DAPI-DAPI': 38,
-                'tgt_FITC-FITC_ref_Cy3-Cy3': 39,
-                'tgt_Cy3-Cy3_ref_FITC-FITC': 39,
-                'tgt_FITC-FITC_ref_Cy5-Cy5': 40,
-                'tgt_Cy5-Cy5_ref_FITC-FITC': 40,
-                'tgt_Cy3-Cy3_ref_Cy5-Cy5': 41,
-                'tgt_Cy5-Cy5_ref_Cy3-Cy3': 41,
-                'Transillumination-Blank1_div_DAPI-DAPI': 32,
-                'DAPI-DAPI_div_Transillumination-Blank1': 32,
-                'Transillumination-Blank1_div_FITC-FITC': 33,
-                'FITC-FITC_div_Transillumination-Blank1': 33,
-                'Transillumination-Blank1_div_Cy3-Cy3':   34,
-                'Cy3-Cy3_div_Transillumination-Blank1':   34,
-                'Transillumination-Blank1_div_Cy5-Cy5':   35,
-                'Cy5-Cy5_div_Transillumination-Blank1':   35,
-                'DAPI-DAPI_div_FITC-FITC':                36,
-                'FITC-FITC_div_DAPI-DAPI':                36,
-                'DAPI-DAPI_div_Cy3-Cy3':                  37,
-                'Cy3-Cy3_div_DAPI-DAPI':                  37,
-                'DAPI-DAPI_div_Cy5-Cy5':                  38,
-                'Cy5-Cy5_div_DAPI-DAPI':                  38,
-                'FITC-FITC_div_Cy3-Cy3':                  39,
-                'Cy3-Cy3_div_FITC-FITC':                  39,
-                'FITC-FITC_div_Cy5-Cy5':                  40,
-                'Cy5-Cy5_div_FITC-FITC':                  40,
-                'Cy3-Cy3_div_Cy5-Cy5':                    41,
-                'Cy5-Cy5_div_Cy3-Cy3':                    41,
-                '4': 50,
-                '04': 50,
-                '1': 51,
-                '2': 52,
-                '3': 53,
-                '01': 51,
-                '02': 52,
-                '03': 53,
-                '1-4': 54,
-                '2-4': 55,
-                '3-4': 56,
-                '01-04': 54,
-                '02-04': 55,
-                '03-04': 56,
-                '1-2-4': 57,
-                '1-3-4': 58,
-                '01-02-04': 57,
-                '01-03-04': 58,
-                '1-2-3-4': 59,
-                '01-02-03-04': 59
-                }
         col_keys = []
         for i, row in sorted(images.items()):
             col_keys.extend(row.keys())
 
         if filter_direction == "horizontal":
-            col_keys = sorted(set(col_keys), key=lambda x:filter2index[x])
+            # col_keys = sorted(set(col_keys), key=lambda x:filter2index[x])
+            col_keys = sorted(set(col_keys), key=filter2index)
             row_keys = sorted(images.keys())
             xspace = self.options.filterspace
             yspace = self.options.fieldspace
         else:
             col_keys = sorted(set(col_keys))
-            row_keys = sorted(images.keys(), key=lambda x:filter2index[x])
+            # row_keys = sorted(images.keys(), key=lambda x:filter2index[x])
+            row_keys = sorted(images.keys(), key=filter2index)
             xspace = self.options.fieldspace
             yspace = self.options.filterspace
 
@@ -344,73 +296,23 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
             if filename == None:
                 continue
 
-            matchObj1 = (re.match('([A-Z])-(\d+)_fld_(\d+)_wv_([^.]+)', filename) or re.match('([A-Z])%20-%20(\d+)\(fld%20(\d+)%20wv%20([^)]+)', filename))
-            matchObjRS100 = re.match('([A-Z])(\d+)-W\d+-P(\d+)-Z\d+-T\d+-([^.]+)', filename) 
-            matchObj2 = re.match('([A-Z])[-_]?(\d+)[-_].*[-_](\d+)_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
-            matchObj3 = re.match('([A-Z])[-_]?(\d+).*_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
-            matchObj4 = re.match('(\d+)[^\d]+(\d+)_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
-            matchObj5 = re.match('(\d+).*_w\d+(BF|BFP|NIBA|WIGA|CY5)\.', filename)
-            matchObj6 = re.match('([A-Z])[-_]?(\d+)[-_]?F(\d+).*C([\d-]+)\.', filename)
-
-            matchObj_def1 = re.match('([A-Z])(\d+)[-_]', filename)
-            matchObj_def2 = re.match('([A-Z])(\d+)\.(jpg|tif|png)', filename)
-
-            ix81_to_cytell_filter = {
-                    'BF'   : 'Transillumination-Blank1',
-                    'BFP'  : 'DAPI-DAPI',
-                    'NIBA' : 'FITC-FITC',
-                    'WIGA' : 'Cy3-Cy3',
-                    'CY5'  : 'Cy5-Cy5',
-                    }
-
-            if   matchObj1:
-                row = matchObj1.group(1)
-                col = matchObj1.group(2).zfill(2)
-                fld = matchObj1.group(3).zfill(2)
-                wav = re.sub('%20', '', matchObj1.group(4))
-            elif matchObjRS100:
-                row = matchObjRS100.group(1)
-                col = matchObjRS100.group(2)
-                fld = matchObjRS100.group(3)
-                wav = matchObjRS100.group(4)
-            elif matchObj2:
-                row = matchObj2.group(1)
-                col = matchObj2.group(2).zfill(2)
-                fld = matchObj2.group(3).zfill(2)
-                wav = ix81_to_cytell_filter[matchObj2.group(4)]
-            elif matchObj3:
-                row = matchObj3.group(1)
-                col = matchObj3.group(2).zfill(2)
-                fld = "01"
-                wav = ix81_to_cytell_filter[matchObj3.group(3)]
-            elif matchObj4:
-                row = "A"
-                col = matchObj4.group(1).zfill(2)
-                fld = matchObj4.group(2).zfill(2)
-                wav = ix81_to_cytell_filter[matchObj4.group(3)]
-            elif matchObj5:
-                row = "A"
-                col = matchObj5.group(1).zfill(2)
-                fld = "01"
-                wav = ix81_to_cytell_filter[matchObj5.group(2)]
-            elif matchObj6:
-                row = matchObj6.group(1)
-                col = matchObj6.group(2).zfill(2)
-                fld = matchObj6.group(3).zfill(2)
-                wav = matchObj6.group(4)
-            elif matchObj_def1:
-                row = matchObj_def1.group(1)
-                col = matchObj_def1.group(2)
-                fld = "01"
-                wav = "Transillumination-Blank1"
-            elif matchObj_def2:
-                row = matchObj_def2.group(1)
-                col = matchObj_def2.group(2)
-                fld = "01"
-                wav = "Transillumination-Blank1"
-            else:
-                continue
-
+            # 正規表現でマッチング
+            for reg in ImageAlignEffect.file_regexps:
+                match_result = reg.match(filename)
+                if match_result == None:
+                    continue
+                group_dict = match_result.groupdict()
+                row = group_dict['ROW']          if 'ROW' in  group_dict else "A" 
+                col = group_dict['COL'].zfill(2) if 'COL' in  group_dict else "01"
+                fld = group_dict['FLD'].zfill(2) if 'FLD' in  group_dict else "01"
+                wav = group_dict['FLT']          if 'FLT' in  group_dict else "Transillumination-Blank1"
+                # logger.debug("reg=" + str(reg))
+                # logger.debug("filename=" + str(filename))
+                # logger.debug("row=" + str(row))
+                # logger.debug("col=" + str(col))
+                # logger.debug("fld=" + str(fld))
+                # logger.debug("wav=" + str(wav))
+                break
 
             # images[row] = {} if not images.has_key(row) else images[row]
             images[row] = {} if not row in images else images[row]
@@ -709,7 +611,7 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
 
 if len(sys.argv) == 1:
     # sys.argv = [ './platealign.py', '--angle=0', '--direction=horizontal', '--hspace=10', '--vspace=20', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
-    sys.argv = [ './platealign.py', '--id=image4757', '--angle=90', '--direction=vertical', '--hspace=10', '--vspace=20', '--filterspace=2', '--fieldspace=5', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
+    sys.argv = [ './platealign3.py', '--id=image4757', '--angle=90', '--direction=vertical', '--hspace=10', '--vspace=20', '--filterspace=2', '--fieldspace=5', '--width=384', '/home/yfujita/work/bin/python/inkscape/platealign/test.svg' ]
 
 # logger.debug( "Started with: {}.".format( str( sys.argv ) ) )
 effect = ImageAlignEffect()
