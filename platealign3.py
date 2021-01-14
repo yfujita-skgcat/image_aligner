@@ -79,13 +79,12 @@ logger.debug( "\n\nLogger initialized" )
 # BFP-iRFP670 と iRFP670-BFP は同じ値になる
 def filter2index(filter_name):
     index = 0
-    filters = ['C1', 'BF', 'Transillumination',
-            'C2', 'DAPI', 'BFP',
-            'C3', 'NIBA', 'FITC', 'GFP',
-            'C4', 'WIGA', 'Cy3', 'tagRFP', 'mCherry',
-            'C5', 'Cy5', 'iRFP670']
+    filters = ['C1', 'CH1', 'PH', 'BF', 'Transillumination', 'Bright_Field',
+            'C2', 'CH2', 'DAPI', 'BFP',
+            'C3', 'CH3', 'NIBA', 'FITC', 'GFP',
+            'C4', 'CH4', 'WIGA', 'Cy3', 'tagRFP', 'mCherry',
+            'C5', 'CH5', 'Cy5', 'iRFP670']
     filters = [".*" + s for s in filters]
-    # logger.debug("filter_name=" + filter_name)
     for fi, fname in enumerate(filters):
         logger.debug(str(fi) + ":検索文字列: " + fname + ", フィルタ名: " + filter_name)
         if re.match(fname, filter_name, flags=re.IGNORECASE):
@@ -93,7 +92,8 @@ def filter2index(filter_name):
             index = index + 2 ** fi
             # logger.debug("fname=" + fname)
             # logger.debug("current index=" + str(index))
-    # logger.debug("index=" + str(index))
+    logger.debug("filter_name=" + filter_name)
+    logger.debug("index=" + str(index))
     return index
 
 
@@ -105,17 +105,19 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
     # ファイルのwell数、フィルタ名などを見つけるための正規表現を先にコンパイルしておく.
     # ここはmap後にlistにしないとイテレーターとして扱われる。そうすると、一度取得した値を繰り返し使えないので、
     # list化を忘れずに
-    file_regexps = list(map(re.compile, [
-        '^.*(?P<ROW>[A-Z])-(?P<COL>\d+)_fld_(?P<FLD>\d+)_wv_(?P<FLT>[^.]+).*$',
-        '^.*(?P<ROW>[A-Z])%20-%20(?P<COL>\d+)\(fld%20(?P<FLD>\d+)%20wv%20(?P<FLT>[^)]+).*$',
-        '^.*(?P<ROW>[A-Z])(?P<COL>\d+)-W\d+-P(?P<FLD>\d+)-Z\d+-T\d+-(?P<FLT>[^.]+)',
-        '^.*(?P<ROW>[A-Z])[-_]?(?P<COL>\d+)[-_].*[-_](?P<FLD>\d+)_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
-        '^.*(?P<ROW>[A-Z])[-_]?(?P<COL>\d+).*_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
-        '^.*(?P<ROW>\d+).*_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
-        '^.*(?P<ROW>[A-Z])[-_]?(?P<COL>\d+)[-_]?F(?P<FLD>\d+).*(?P<FLT>C[\d-]+)\..*$',
+    file_regexps = list(map(lambda r: re.compile(r, flags=re.IGNORECASE), [
+        '^.*?(?P<ROW>[A-Z])-(?P<COL>\d+)_fld_(?P<FLD>\d+)_wv_(?P<FLT>[^.]+).*$',
+        '^.*?(?P<ROW>[A-Z])%20-%20(?P<COL>\d+)\(fld%20(?P<FLD>\d+)%20wv%20(?P<FLT>[^)]+).*$',
+        '^.*?(?P<ROW>[A-Z])(?P<COL>\d+)-W\d+-P(?P<FLD>\d+)-Z\d+-T\d+-(?P<FLT>[^.]+)',
+        '^.*?(?P<ROW>[A-Z])[-_]?(?P<COL>\d+)[-_].*[-_](?P<FLD>\d+)_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
+        '^.*?(?P<ROW>[A-Z])[-_]?(?P<COL>\d+).*_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
+        '^.*?(?P<ROW>\d+).*_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
+        '^.*?(?P<ROW>[A-Z])[-_]?(?P<COL>\d+)[-_]?F(?P<FLD>\d+).*(?P<FLT>C[\d-]+)\..*$',
+        '^.*?(?P<ROW>[A-Z])(?P<COL>\d+)_\d+_(?P<FLD>\d+)_\d+_(?P<FLT>[^.]+)\..*$',
+        '^(?P<ROW>[A-Z])(?P<COL>\d+)-(?P<FLT>[^.]+)\..*$',
 
-        '^.*(?P<ROW>[A-Z])(?P<COL>\d+)[-_].*',
-        '^.*(?P<ROW>[A-Z])(?P<COL>\d+)\.(jpg|tif|png).*'
+        '^.*?(?P<ROW>[A-Z])(?P<COL>\d+)[-_].*',
+        '^.*?(?P<ROW>[A-Z])(?P<COL>\d+)\.(jpg|tif|png).*'
             ]))
 
     def __init__( self ):
@@ -247,8 +249,15 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
     def get_image_fname(self, img_obj):
         filename = None
         for attr in img_obj.keys():
-            if re.search("href$", attr):
+            logger.debug("attr=" + attr)
+            if re.search("label$", attr):
                 filename = img_obj.get(attr).split("/")[-1]
+                break
+            if re.search("href$", attr):
+                data = img_obj.get(attr)
+                if re.search("^data:", data):
+                    continue
+                filename = data.split("/")[-1]
                 break
         return filename
 
@@ -300,24 +309,34 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
             for reg in ImageAlignEffect.file_regexps:
                 match_result = reg.match(filename)
                 if match_result == None:
+                    logger.debug("NOTMATCH: filename=" + str(filename) + "  REGEXP=" + str(reg))
                     continue
+                logger.debug("MATCH: filename=" + str(filename) + "  REGEXP=" + str(reg))
                 group_dict = match_result.groupdict()
                 row = group_dict['ROW']          if 'ROW' in  group_dict else "A" 
                 col = group_dict['COL'].zfill(2) if 'COL' in  group_dict else "01"
                 fld = group_dict['FLD'].zfill(2) if 'FLD' in  group_dict else "01"
                 wav = group_dict['FLT']          if 'FLT' in  group_dict else "Transillumination-Blank1"
-                # logger.debug("reg=" + str(reg))
-                # logger.debug("filename=" + str(filename))
-                # logger.debug("row=" + str(row))
-                # logger.debug("col=" + str(col))
-                # logger.debug("fld=" + str(fld))
-                # logger.debug("wav=" + str(wav))
+                logger.debug("reg=" + str(reg))
+                logger.debug("filename=" + str(filename))
+                logger.debug("row=" + str(row))
+                logger.debug("col=" + str(col))
+                logger.debug("fld=" + str(fld))
+                logger.debug("wav=" + str(wav))
                 break
 
+
+
             # images[row] = {} if not images.has_key(row) else images[row]
+            if row == None:
+                continue
             images[row] = {} if not row in images else images[row]
             # images[row][col] = {} if not images[row].has_key(col) else images[row][col]
+            if col == None:
+                continue
             images[row][col] = {} if not col in images[row] else images[row][col]
+            if fld == None or wav == None:
+                continue
             if direction == "horizontal":
                 # images[row][col][fld] = {} if not images[row][col].has_key(fld) else images[row][col][fld]
                 images[row][col][fld] = {} if not fld in images[row][col] else images[row][col][fld]
