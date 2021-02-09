@@ -79,21 +79,21 @@ logger.debug( "\n\nLogger initialized" )
 # BFP-iRFP670 と iRFP670-BFP は同じ値になる
 def filter2index(filter_name):
     index = 0
-    filters = ['C1', 'CH1', 'PH', 'BF', 'Transillumination', 'Bright_Field',
-            'C2', 'CH2', 'DAPI', 'BFP',
-            'C3', 'CH3', 'NIBA', 'FITC', 'GFP',
-            'C4', 'CH4', 'WIGA', 'Cy3', 'tagRFP', 'mCherry',
-            'C5', 'CH5', 'Cy5', 'iRFP670']
+    filters = ['CH1', 'PH', 'BF', 'Transillumination', 'Bright_Field', 'Lamp', 'Through', 'PhaseContrast',
+            'CH2', 'DAPI', 'BFP', 'BP447',
+            'CH3', 'NIBA', 'FITC', 'GFP', 'BP525',
+            'CH4', 'WIGA', 'Cy3', 'tagRFP', 'mCherry', 'BP617',
+            'CH5', 'Cy5', 'iRFP670', 'BP685']
     filters = [".*" + s for s in filters]
     for fi, fname in enumerate(filters):
-        logger.debug(str(fi) + ":検索文字列: " + fname + ", フィルタ名: " + filter_name)
+        # logger.debug(str(fi) + ":検索文字列: " + fname + ", フィルタ名: " + filter_name)
         if re.match(fname, filter_name, flags=re.IGNORECASE):
             # logger.debug("fi=" + str(fi))
             index = index + 2 ** fi
             # logger.debug("fname=" + fname)
             # logger.debug("current index=" + str(index))
-    logger.debug("filter_name=" + filter_name)
-    logger.debug("index=" + str(index))
+    # logger.debug("filter_name=" + filter_name)
+    # logger.debug("index=" + str(index))
     return index
 
 
@@ -108,7 +108,10 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
     file_regexps = list(map(lambda r: re.compile(r, flags=re.IGNORECASE), [
         '^.*?(?P<ROW>[A-Z])-(?P<COL>\d+)_fld_(?P<FLD>\d+)_wv_(?P<FLT>[^.]+).*$',
         '^.*?(?P<ROW>[A-Z])%20-%20(?P<COL>\d+)\(fld%20(?P<FLD>\d+)%20wv%20(?P<FLT>[^)]+).*$',
-        '^.*?(?P<ROW>[A-Z])(?P<COL>\d+)-W\d+-P(?P<FLD>\d+)-Z\d+-T\d+-(?P<FLT>[^.]+)',
+        '^.*?(?P<ROW>[A-Z])(?P<COL>\d+)-W\d+-P(?P<FLD>\d+)-Z(?P<ZPOS>\d+)-T(?P<TIME>\d+)-(?P<FLT>[^.]+)',
+        # W0021F0001T0001Z001C1.tif (CQ1用)
+        '^.*?(?P<ROW>[A-Z])(?P<COL>\d+)F(?P<FLD>\d+)T(?P<TIME>\d+)Z(?P<ZPOS>...)(?P<FLT>[^.]+)\..*$',
+        '^.*?(?P<ROW>[A-Z])(?P<COL>\d+)F(?P<FLD>\d+)T(?P<TIME>\d+)Z(?P<ZPOS>...)(?P<FLT>C\d+)\..*$',
         '^.*?(?P<ROW>[A-Z])[-_]?(?P<COL>\d+)[-_].*[-_](?P<FLD>\d+)_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
         '^.*?(?P<ROW>[A-Z])[-_]?(?P<COL>\d+).*_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
         '^.*?(?P<ROW>\d+).*_w\d+(?P<FLT>BF|BFP|NIBA|WIGA|CY5)\..*$',
@@ -185,6 +188,7 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
 
     color_list = [ '#0000ff', '#00ff00', '#ff0000', '#ff00ff', '#00ffff', '#ffff00', '#8800ff', '#0088ff', '#00ff88', '#ff0088' ] 
 
+
     #  filt1  filt2  filt3
     # [img11, img12, img13,...]
     # [img21, -----, img23,...]
@@ -194,6 +198,7 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
     # filt2 [img21, -----, img23,...]
     # filt3 [img31, -----, img33,...]
     # を並べる
+    # ただし img11 = [z1t1,z1t2,...z2t1,z2t2,... ] になっている
     def align_images(self, images, x, y, width, height, filter_direction="horizontal"):
         col_keys = []
         for i, row in sorted(images.items()):
@@ -201,28 +206,49 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
 
         if filter_direction == "horizontal":
             # col_keys = sorted(set(col_keys), key=lambda x:filter2index[x])
-            col_keys = sorted(set(col_keys), key=filter2index)
+            col_keys = sorted(set(col_keys), key=filter2index)  # col 側がFilter名
             row_keys = sorted(images.keys())
             xspace = self.options.filterspace
             yspace = self.options.fieldspace
         else:
             col_keys = sorted(set(col_keys))
             # row_keys = sorted(images.keys(), key=lambda x:filter2index[x])
-            row_keys = sorted(images.keys(), key=filter2index)
+            row_keys = sorted(images.keys(), key=filter2index) # row 側がfilter名
             xspace = self.options.fieldspace
             yspace = self.options.filterspace
 
 
-        for i, row_key in enumerate(row_keys):
-            for j, col_key in enumerate(col_keys):
-                # if images[row_key].has_key(col_key):
+        # logger.debug(row_keys)
+        # logger.debug(col_keys)
+        for i, row_key in enumerate(row_keys): # field か フィルタ(縦軸)
+            for j, col_key in enumerate(col_keys): # field か フィルタ(横軸)
                 if col_key in images[row_key]:
-                    img_obj = images[row_key][col_key]
-                    xpos = x + j * (width  + xspace)
-                    ypos = y + i * (height + yspace)
-                    xpos, ypos = self.transform_rotate_xy(xpos, ypos)
-                    img_obj.set("x", str(xpos))
-                    img_obj.set("y", str(ypos))
+                    # logger.debug("row_key=" + row_key)
+                    # logger.debug("col_key=" + col_key)
+                    # logger.debug("images[row_key][col_key]=" + str(images[row_key][col_key]))
+                    # logger.debug("images[row_key][col_key][0001]=" + str(images[row_key][col_key]['0001']))
+                    # img_obj = images[row_key][col_key]['0001']['0001']
+                    # xpos = x + j * (width  + xspace)
+                    # ypos = y + i * (height + yspace)
+                    # xpos, ypos = self.transform_rotate_xy(xpos, ypos)
+                    # img_obj.set("x", str(xpos))
+                    # img_obj.set("y", str(ypos))
+                    # ここで ['0001']['0001'] が時間とzスライス
+                    # quit()
+                    z_keys = sorted(images[row_key][col_key].keys())
+                    for  z, z_key in enumerate(z_keys):
+                        # logger.debug("z=" + str(z))
+                        t_keys = sorted(images[row_key][col_key][z_key].keys())
+                        # logger.debug("t_keys=" + str(t_keys))
+                        for t, t_key in enumerate(t_keys):
+                            # logger.debug("t=" + str(t))
+                            img_obj = images[row_key][col_key][z_key][t_key]
+                            # xpos = x + j * (width + xspace) + (z+1) * (t+1) * width +  (z+1) * (t+1) * width
+                            xpos = x + j * xspace + j * len(t_keys) * len(z_keys) * width + ( z * len(t_keys) + t ) * width
+                            ypos = y + i * (height + yspace)
+                            xpos, ypos = self.transform_rotate_xy(xpos, ypos)
+                            img_obj.set("x", str(xpos))
+                            img_obj.set("y", str(ypos))
 
         # row_n = len(row_keys)
         # col_n = len(col_keys)
@@ -249,7 +275,7 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
     def get_image_fname(self, img_obj):
         filename = None
         for attr in img_obj.keys():
-            logger.debug("attr=" + attr)
+            # logger.debug("attr=" + attr)
             if re.search("label$", attr):
                 filename = img_obj.get(attr).split("/")[-1]
                 break
@@ -266,8 +292,6 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
         max_image_width  = 0
         max_image_height = 0
         images = {}
-        rows = []
-        cols = []
         if self.options.angle == 90 or  self.options.angle == 270:
             vertical_param   = "width"
             horizontal_param = "height"
@@ -309,20 +333,24 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
             for reg in ImageAlignEffect.file_regexps:
                 match_result = reg.match(filename)
                 if match_result == None:
-                    logger.debug("NOTMATCH: filename=" + str(filename) + "  REGEXP=" + str(reg))
+                    # logger.debug("NOTMATCH: filename=" + str(filename) + "  REGEXP=" + str(reg))
                     continue
-                logger.debug("MATCH: filename=" + str(filename) + "  REGEXP=" + str(reg))
+                # logger.debug("MATCH: filename=" + str(filename) + "  REGEXP=" + str(reg))
                 group_dict = match_result.groupdict()
-                row = group_dict['ROW']          if 'ROW' in  group_dict else "A" 
-                col = group_dict['COL'].zfill(2) if 'COL' in  group_dict else "01"
-                fld = group_dict['FLD'].zfill(2) if 'FLD' in  group_dict else "01"
-                wav = group_dict['FLT']          if 'FLT' in  group_dict else "Transillumination-Blank1"
-                logger.debug("reg=" + str(reg))
-                logger.debug("filename=" + str(filename))
-                logger.debug("row=" + str(row))
-                logger.debug("col=" + str(col))
-                logger.debug("fld=" + str(fld))
-                logger.debug("wav=" + str(wav))
+                row   = group_dict['ROW']            if 'ROW'    in  group_dict.keys() else "A" 
+                col   = group_dict['COL'].zfill(2)   if 'COL'    in  group_dict.keys() else "01"
+                fld   = group_dict['FLD'].zfill(4)   if 'FLD'    in  group_dict.keys() else "0001"
+                time  = group_dict['TIME'].zfill(4)  if 'TIME'   in  group_dict.keys() else "0001"
+                zpos  = group_dict['ZPOS'].zfill(3)  if 'ZPOS'   in  group_dict.keys() else "0001"
+                wav = group_dict['FLT']              if 'FLT'    in  group_dict.keys() else "Transillumination-Blank1"
+                # logger.debug("reg=" + str(reg))
+                # logger.debug("filename=" + str(filename))
+                # logger.debug("row=" + str(row))
+                # logger.debug("col=" + str(col))
+                # logger.debug("fld=" + str(fld))
+                # logger.debug("wav=" + str(wav))
+                # logger.debug("time=" + str(time))
+                # logger.debug("zpos=" + str(zpos))
                 break
 
 
@@ -330,23 +358,39 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
             # images[row] = {} if not images.has_key(row) else images[row]
             if row == None:
                 continue
-            images[row] = {} if not row in images else images[row]
-            # images[row][col] = {} if not images[row].has_key(col) else images[row][col]
+            # images[row] = {} if not row in images.keys() else images[row]
+            if not row in images.keys():
+                images[row] = {}
             if col == None:
                 continue
-            images[row][col] = {} if not col in images[row] else images[row][col]
+            # images[row][col] = {} if not col in images[row].keys() else images[row][col]
+            if not col in images[row].keys():
+                images[row][col] = {}
             if fld == None or wav == None:
                 continue
+            if time == None:
+                continue
+            if zpos == None:
+                continue
+            # logger.debug("direction=" + direction)
             if direction == "horizontal":
-                # images[row][col][fld] = {} if not images[row][col].has_key(fld) else images[row][col][fld]
-                images[row][col][fld] = {} if not fld in images[row][col] else images[row][col][fld]
-                images[row][col][fld][wav] = img_obj
+                if not fld in images[row][col].keys():
+                    images[row][col][fld] = {}
+                if not wav in  images[row][col][fld].keys():
+                    images[row][col][fld][wav] = {}
+                if not zpos in images[row][col][fld][wav].keys():
+                    images[row][col][fld][wav][zpos] = {}
+                images[row][col][fld][wav][zpos][time] = img_obj
             else:
-                # images[row][col][wav] = {} if not images[row][col].has_key(wav) else images[row][col][wav]
-                images[row][col][wav] = {} if not wav in images[row][col] else images[row][col][wav]
-                images[row][col][wav][fld] = img_obj
+                if not wav in images[row][col].keys():
+                    images[row][col][wav] = {}
+                if not fld in images[row][col][wav].keys():
+                    images[row][col][wav][fld] = {}
+                if not zpos in images[row][col][wav][fld].keys():
+                    images[row][col][wav][fld][zpos] = {}
+                images[row][col][wav][fld][zpos][time] = img_obj
 
-        # logger.debug("images = " + pp.pformat(images))
+        # logger.debug("images=" + str(images))
         return images, max_image_width, max_image_height
 
     # 画像の並びの構造は以下のとおりになっている
@@ -370,11 +414,12 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
     # だから、filterが横に並ぶ場合は同じcolを全部見て位置を決めなければならない
     # 同じcolに含まれるfilterを全部拾ってuniqとって、数をindexにするのか
     # table は dictionary
+    # ウェルテーブル
     #      1,  2,  3  ...
     # A: [A1, A2, A3, ...]
     # B: [B1, B2, B3, ...]
     # C: [C1, C2, C3, ...]
-    # 各 A1, A2, A3.. が
+    # 各 A1, A2, A3.. がウェル内テーブル、
     #      1,  2,  3  ...
     # a: [a1, a2, a3, ...]
     # b: [b1, b2, b3, ...]
@@ -382,18 +427,39 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
     # という構造をとっている.
     # なので、例えば2番目の横方向の幅を調べる場合は、
     # A2,B2,C2 について、len(a), len(b), len(c)を調べていけば良い
+    # さらにa1, a2, それぞれについて、 a1 = [ zpos1, zpos2, zpos3 ], zpos1 = [t1, t2, ...] になっている
     #
     # 一方B番目の縦方向の幅を調べるには
     # B1, B2, B3 について、len(B1), len(B2), len(B3)を調べていけば良い
     def get_vertical_max_width(self, table, ci):
         max_n = 0
         # logger.debug("ci = " + str(ci))
-        for i in table.keys(): # 行のindex
-            # if table[i].has_key(ci):
-            if ci in table[i]:
-                for j in table[i][ci].keys(): # 行のindex
-                    if max_n < len(table[i][ci][j]): # 行の長さ
-                        max_n = len(table[i][ci][j])
+        for ri in table.keys(): # 行のindex
+            # logger.debug("ri=" + ri)
+            # if not ci in table[ri].keys():
+            #     logger.debug("ci=" + ci)
+            #     logger.debug("str(table[ri].keys()=" + str(table[ri].keys()))
+
+
+            if ci in table[ri].keys():
+                # logger.debug("str(table[ri][ci]=" + str(table[ri][ci]))
+                # images[row][col][fld][wav][zpos][time] = img_obj
+                # images[row][col][wav][fld][zpos][time] = img_obj
+                for fwnum1 in table[ri][ci].keys(): # ウェル内テーブルの行のindex, fwnum1 = fld or wav number
+                    # if max_n < len(table[ri][ci][fwnum1]): # 行の長さ
+                    #     max_n = len(table[ri][ci][fwnum1])
+                    # logger.debug("str(table[ri][ci][fwnum1]=" + str(table[ri][ci][fwnum1]))
+                    number_of_fwnum2_time_slice = 0
+                    for fwnum2 in table[ri][ci][fwnum1].keys(): # fwnum2 = fid or wav number
+                        # nslice = len(table[ri][ci][fwnum1][fwnum2])
+                        # logger.debug("str(table[ri][ci][fwnum1].keys()=" + str(table[ri][ci][fwnum1].keys()))
+                        # logger.debug("str(table[ri][ci][fwnum1][nslice]=" + str(table[ri][ci][fwnum1][nslice]))
+                        # logger.debug("str(table[ri][ci][fwnum1][fwnum2].keys()=" + str(table[ri][ci][fwnum1][fwnum2].keys()))
+                        for nslice in table[ri][ci][fwnum1][fwnum2].keys():
+                            number_of_fwnum2_time_slice += len(table[ri][ci][fwnum1][fwnum2][nslice]) # time
+                    if max_n < number_of_fwnum2_time_slice: # 行の長さ
+                        max_n = number_of_fwnum2_time_slice
+                        # logger.debug("max_n=" + str(max_n))
         return max_n
 
     def get_vertical_max_width_table(self, table):
@@ -402,14 +468,32 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
             col2hnum[str(i).zfill(2)] = self.get_vertical_max_width(table, str(i).zfill(2))
         return col2hnum
 
+    # table が画像のHashTable[row][col][wav][fld][zpos][time]
     def get_horizontal_max_height(self, table, ri):
         max_n = 0
-        # if not table.has_key(ri):
-        if not ri in table:
+        # logger.debug("table.keys() = " + str(table.keys()))
+        if not ri in table.keys():  # row のインデックスがあるかチェック => なければそのrow のhorizon は0
             return max_n
-        for i in table[ri].keys(): # 列のindex
-            if max_n < len(table[ri][i]):
-                max_n = len(table[ri][i])
+        # logger.debug("ri=" + str(ri))
+        for coli in table[ri].keys(): # 列のindex.
+            if max_n < len(table[ri][coli]):
+                max_n = len(table[ri][coli])
+
+            # logger.debug("coli=" + str(coli))
+            # # z slice と time は単純に右に繋いでいくのでそれぞれの画像の数を足す
+            # # fld or wav の数 x それぞれのtime-zsliceの数を足す(掛け算ではなく、それぞれ別のtime-zslice数である可能性ありなので全部足す)
+            # num_tz_images = 0
+            # for wav_fld_i in table[ri][coli].keys():
+            #     # logger.debug("wav_fld_i=" + str(wav_fld_i))
+            #     logger.debug("table[ri][coli][wav_fld_i]=" + str(table[ri][coli][wav_fld_i]))
+            #     for zi in table[ri][coli][wav_fld_i].keys():
+            #         # logger.debug("zi=" + str(zi))
+            #         num_tz_images = num_tz_images + len(table[ri][coli][wav_fld_i][zi])
+            #         for ti in table[ri][coli][wav_fld_i][zi].keys():
+            #             logger.debug("ti=" + str(ti))
+            # logger.debug("num_tz_images=" + str(num_tz_images))
+            # if max_n < num_tz_images:
+            #     max_n = num_tz_images
         return max_n
 
 
@@ -468,6 +552,7 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
         col2hnum = self.get_vertical_max_width_table(images)
         # logger.debug("row2vnum = " + pp.pformat(row2vnum))
         # logger.debug("col2hnum = " + pp.pformat(col2hnum))
+        # quit()
 
         x_coeffi = {
                 0:  0,
@@ -521,7 +606,11 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
                     else:
                         x = self.options.x + max_image_width * x_coeffi[self.options.angle] + col_image_count * (max_image_width  + self.options.fieldspace)  + col_chunk_count * (self.options.hspace - self.options.fieldspace)
                         y = self.options.y + max_image_height * y_coeffi[self.options.angle] + row_image_count * (max_image_height + self.options.filterspace) + row_chunk_count * (self.options.vspace - self.options.filterspace)
+
+
+                    # logger.debug("col_image_count=" + str(col_image_count))
                     self.align_images(img_table, x, y, max_image_width, max_image_height, filter_direction=self.options.direction)
+                    # logger.debug("x=" + str(x) + ", y=" + str(y))
 
                     text_x = x - max_image_width * x_coeffi[self.options.angle]
                     text_y = y - max_image_height * y_coeffi[self.options.angle]
@@ -576,6 +665,7 @@ class ImageAlignEffect( inkex.Effect ):  # class 宣言の引数は継承
                         text.set('style', str(inkex.Style(style)))
                         row_label_list[row_key] = text
 
+                # logger.debug("col2hnum = " + str(col2hnum))
                 col_image_count += col2hnum[col_key]
                 col_chunk_count += 1
 
