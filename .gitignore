@@ -1,8 +1,9 @@
 *.log
 *.svg
 platealign_bak.py
-*.jpg
 *.rb
+*.jpg
 memo.txt
 test/
 old/
+!images/*.jpg
