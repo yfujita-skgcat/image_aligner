@@ -46,13 +46,14 @@ platealign3.inx platealign3.py
 
  * ファイル名が適切であれば蛍光写真以外も並べることが出来ます。
 
-[random_images] (images/aligned_layout.jpg)
+![aligned images](images/random_layout.jpg)
 
 2. Inkscape のエクステンション(Extensions)から画像(Images)-> platealign3 を選択してください。
 
 3. 表示されるパネルに適当に数値を入れ適用をクリックしてください。
 
-[aligned images] (images/random_layout.jpg)
+![random_images](https://github.com/yfujita-skgcat/image_aligner/blob/main/images/aligned_layout.jpg)
+
 
 * Top left position (x): 一番左上の画像の左上端のx位置
 * Top left position (y):  一番左上の画像の左上端のy位置
