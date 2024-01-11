@@ -52,7 +52,7 @@ platealign3.inx platealign3.py
 
 3. 表示されるパネルに適当に数値を入れ適用をクリックしてください。
 
-![random_images](https://github.com/yfujita-skgcat/image_aligner/blob/main/images/aligned_layout.jpg)
+![random_images](images/aligned_layout.jpg)
 
 
 * Top left position (x): 一番左上の画像の左上端のx位置
@@ -67,3 +67,6 @@ platealign3.inx platealign3.py
 * Stamp layout: 並べたときの設定情報を記載する
 * Stamp row and col label: ウェル番号(A, B, C..., 1, 2, 3...)を記載する
 * Align only selected images: 選択した画像だけ整列させる
+
+> [!NOTE]
+> x, y と実際のinkscapeとの座標がずれている場合は「ドキュメントのプロパティ」=> 「表示」の単位をすべて 「px」にして、尺度(scale)を1にしてください。
