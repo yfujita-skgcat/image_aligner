@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
-  <_name>PlateImageAligner3</_name>
+  <name>PlateImageAligner3</name>
   <id>org.ekips.filter.imageAligner3</id>
-  <dependency type="executable" location="extensions">platealign3.py</dependency>
-  <dependency type="executable" location="extensions">inkex.py</dependency>
-  <dependency type="executable" location="extensions">simpletransform.py</dependency>
-  <dependency type="executable" location="extensions">simplestyle.py</dependency>
+  <!-- <dependency type="executable" location="extensions">platealign3.py</dependency> -->
+  <!-- <dependency type="executable" location="extensions">inkex.py</dependency> -->
+  <!-- <dependency type="executable" location="extensions">simpletransform.py</dependency> -->
+  <!-- <dependency type="executable" location="extensions">simplestyle.py</dependency> -->
 
   <param name="x" type="int" min="0" max="60000" _gui-text="Top left position (x):">0</param>
   <param name="y" type="int" min="0" max="60000" _gui-text="Top left position (y):">0</param>
   <param name="angle" type="optiongroup" appearance="combo" _gui-text="Angle:">
-    <_item value="0">No rotate</_item> <_item value="90">Rotate 90 degree</_item> <_item value="180">Rotate 180 degree</_item> <_item value="270">Rotate 270 degree</_item>
+    <option value="0">No rotate</option> <option value="90">Rotate 90 degree</option> <option value="180">Rotate 180 degree</option> <option value="270">Rotate 270 degree</option>
   </param>
   <param name="width" type="int" min="0" max="60000" _gui-text="Resize image width (px):">0</param>
   <param name="filterspace" type="int" min="0" max="60000" _gui-text="Space between each filter (px):">2</param>
@@ -19,7 +19,7 @@
   <param name="vspace" type="int" min="0" max="60000" _gui-text="vertical space (px):">5</param>
 
   <param name="direction" type="optiongroup" appearance="combo" _gui-text="Filter align:">
-    <_item value="horizontal">Horizontal</_item><_item value="vertical">Vertical</_item>
+    <option value="horizontal">Horizontal</option><option value="vertical">Vertical</option>
   </param>
 
 
