@@ -41,7 +41,7 @@ pp = pprint.PrettyPrinter(indent=2)
 logger = logging.getLogger("platealign")
 formatter = logging.Formatter('%(levelname)s - %(lineno)d - %(message)s')
 # debugging (True) or deployment (False)
-if True:
+if False:
   # a logger for debugging/warnings
   logger.setLevel(logging.DEBUG)
   fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='a')
