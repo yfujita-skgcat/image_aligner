@@ -70,3 +70,19 @@ platealign3.inx platealign3.py
 
 > [!NOTE]
 > x, y と実際のinkscapeとの座標がずれている場合は「ドキュメントのプロパティ」=> 「表示」の単位をすべて 「px」にして、尺度(scale)を1にしてください。
+
+> [!NOTE]
+> フィルタの名前と順番は ~/.config/platealign/config.yaml で設定できます。
+> また、検索するファイル名も設定可能です。
+```
+regexp:
+  - ^.*?(?P<ROW>[A-Z])-(?P<COL>\d+)_fld_(?P<FLD>\d+)_wv_(?P<FLT>[^.]+).*$
+  - ^.*?(?P<ROW>[A-Z])%20-%20(?P<COL>\d+)\(fld%20(?P<FLD>\d+)%20wv%20(?P<FLT>[^)]+).*$
+  - ^.*?(?P<ROW>[A-Z])(?P<COL>\d+)-W\d+-P(?P<FLD>\d+)-Z(?P<ZPOS>\d+)-T(?P<TIME>\d+)-(?P<FLT>[^.]+)
+filters:
+  - CH1
+  - GC
+  - PH
+  - BF
+  - DIA
+```

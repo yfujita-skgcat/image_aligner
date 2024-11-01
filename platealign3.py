@@ -34,7 +34,21 @@ from lxml import etree
 import re
 import pprint
 
-import xml.etree.ElementTree as ET
+import os
+# import xml.etree.ElementTree as ET
+home_dir = os.path.expanduser("~")
+config_dir = os.path.join(home_dir, ".config", "platealign")
+config_file = os.path.join(config_dir, "config.yaml")
+if not os.path.exists(config_dir):
+  os.makedirs(config_dir)
+
+if os.path.exists(config_file):
+  import yaml
+  with open(config_file, 'r') as f:
+    config = yaml.safe_load(f)
+  # if config is not None:
+  #   for k, v in config.items():
+  #     os.environ[k] = v
 
 pp = pprint.PrettyPrinter(indent=2)
 
@@ -71,6 +85,10 @@ def filter2index(filter_name):
       'CH4', 'WIGA', 'Cy3', 'tagRFP', 'RFP_W', 'mCherry', 'BP617',
       'CH5', 'Cy5', 'CY5', 'iRFP670', 'BP685'
   ]
+  if 'filters' in config.keys():
+    logger.debug("config['filters'] exists. Loading from config file")
+    logger.debug("config['filters']=" + str(config['filters']))
+    filters = config['filters']
 
   filters = [".*" + s for s in filters]
   for fi, fname in enumerate(filters):
@@ -83,182 +101,6 @@ def filter2index(filter_name):
   # logger.debug("filter_name=" + filter_name)
   # logger.debug("index=" + str(index))
   return index
-
-
-# class WellImageSet:
-#   """
-#   1 Wellの画像セットのクラス
-#   - 画像のIDのリスト
-#   - IDから画像へのdictonary
-#   - IDからフィルタ名へのdictonary
-#   - IDからfieldへのdictonary
-#   """
-
-#   def __init__(self, row, col, svg, filter_align="vertical", angle=0, width=0, filter_space=0, field_space=0):
-#     self.svg = svg
-#     self.row = row
-#     self.width = width
-#     self.col = col
-#     self.angle = angle
-#     self.filter_align = filter_align
-#     self.filter_space = filter_space
-#     self.field_space = field_space
-#     self.image_ids = set()
-#     self.id2image = {}
-#     self.id2filter = {}
-#     self.id2field = {}
-#     self.id2time = {}
-#     self.id2zpos = {}
-#     self.filter2images = {}
-#     self.field2images = {}
-#     self.time2images = {}
-#     self.zpos2images = {}
-
-#   # 画像を追加
-#   def push(self, image):
-#     image_id = image.get("id")
-#     self.image_ids.add(image_id)
-#     fname = ImageAlignEffect.get_filter_name(image)
-#     row, col, fld, time, zpos, wav = ImageAlignEffect.get_params_from_name(fname)
-#     if row != self.row or col != self.col:
-#       logger.error("row, col mismatch: " + fname)
-#       raise ValueError("row, col mismatch: " + fname)
-#     self.id2image[image_id] = image
-#     self.id2filter[image_id] = wav
-#     self.id2field[image_id] = fld
-#     self.id2tiem[image_id] = time
-#     self.id2zpos[image_id] = zpos
-#     self.filter2images.setdefault(wav, set()).add(image)
-#     self.field2images.setdefault(fld, set()).add(image)
-#     self.time2images.setdefault(time, set()).add(image)
-#     self.zpos2images.setdefault(zpos, set()).add(image)
-
-#     width = float(image.get("width"))
-#     height = float(image.get("height"))
-#     if self.angle == 90 or self.angle == 270:
-#       width, height = height, width
-#     if self.width != 0.0:
-#       height = height * self.width / width
-#       width = self.width
-#     image.set("width", str(width))
-#     image.set("height", str(height))
-
-#     if self.angle == 0 and "transform" in image.attrib:
-#       del image.attrib["transform"]
-#     elif self.angle == 90:
-#       image.set("transform", "matrix(0,1,-1,0,0,0)")
-#     elif self.options.angle == 180:
-#       image.set("transform", "scale(-1,-1)")
-#     elif self.options.angle == 270:
-#       image.set("transform", "matrix(0,-1,1,0,0,0)")
-
-
-#     # self.id2width[image_id] = width
-#     # self.id2height[image_id] = height
-
-#   def nfield(self):
-#     n = len(set(self.id2field.values()))
-#     return 1 if n == 0 else n
-
-#   def ntime(self):
-#     n = len(set(self.id2tiem.values()))
-#     return 1 if n == 0 else n
-
-#   def nzpos(self):
-#     n = len(set(self.id2zpos.values()))
-#     return 1 if n == 0 else n
-
-#   # 図のレイアウトはfilterの並びの直角方向にfield, zpos, time が並ぶ
-#   # zpos, time が複数ある場合は、zpos -> time の順で並べる
-#   def row_size(self):
-#     """
-#     1行の画像数を返す
-#     :param col_param: "field" or "filter"
-#     :return:
-#     """
-#     if self.filter_align == "vertical":
-#       return self.nfilter()
-#     elif self.filter_align == "horizontal":
-#       return self.nfield() * self.nzpos() * self.ntime()
-#     else:
-#       raise ValueError("filter_align must be vertical or horizontal")
-
-#   def col_size(self):
-#     """
-#     1列の画像数を返す
-#     :param col_param: "field" or "filter"
-#     :return:
-#     """
-#     if self.filter_align == "vertical":
-#       return self.nfield() * self.nzpos() * self.ntime()
-#     elif self.filter_align == "horizontal":
-#       return self.nfilter()
-#     else:
-#       raise ValueError("filter_align must be vertical or horizontal")
-
-#   # well 内の画像を並べたときのx, yのサイズを返す
-#   def geometory(self):
-#     return self.width(), self.height()
-
-
-#   def height(self):
-#     axis = "height" if self.angle == 0 or self.angle == 180 else "width"
-#     if self.align == "vertical":
-#       # フィルタを縦に並べる場合は、それぞれのフィルタに含まれる全画像の高さの最大値の合計が高さになる
-#       return sum(max(float(image.get(axis)) + (self.nfilter - 1) * self.filter_space for image in self.filter2images[filter]) for filter in set(self.id2filter.values()))
-#     elif self.align == "horizontal":
-#       # フィルタを横に並べる場合は、同一のtime, zpos, filedをもつ全画像の高さの最大値の合計が高さになる
-#       max_axis = [max(float(image.get(axis)) for image in self.field2images[field] & self.time2images[time] & self.zpos2images[zpos])
-#                   for field in set(self.id2field.values())
-#                   for time in set(self.id2time.values())
-#                   for zpos in set(self.id2zpos.values())]
-#       total_axis = sum(max_axis) + (len(max_axis) - 1) * self.field_space
-#       return total_axis
-#       # return sum(max(float(image.get(axis)) for image in (self.field2images[field] & self.time2images[time] & self.zpos2images[zpos])) for field in set(self.id2field.values()) for time in set(self.id2time.values()) for zpos in set(self.id2zpos.values()))
-#     else:
-#       raise ValueError("align must be vertical or horizontal")
-
-#   def width(self):
-#     axis = "width" if self.angle == 0 or self.angle == 180 else "height"
-#     if self.align == "vertital":
-#       # フィルタを縦に並べる場合は、同一のtime, zpos, filedをもつ全画像の幅の最大値の合計が幅になる
-#       max_axis = [max(float(image.get(axis)) for image in self.field2images[field] & self.time2images[time] & self.zpos2images[zpos])
-#                   for field in set(self.id2field.values())
-#                   for time in set(self.id2time.values())
-#                   for zpos in set(self.id2zpos.values())]
-#       total_axis = sum(max_axis) + (len(max_axis) - 1) * self.field_space
-#       return total_axis
-#     elif self.align == "horizontal":
-#       # フィルタを横に並べる場合は、それぞれのフィルタに含まれる全画像の幅の最大値の合計が幅になる
-#       return sum(max(float(image.get(axis)) + (self.nfilter - 1) * self.filter_space for image in self.filter2images[filter]) for filter in set(self.id2filter.values()))
-#     else:
-#       raise ValueError("align must be vertical or horizontal")
-
-#   def dimention(self, dim_type):
-#     if dim_type not in ["height", "width"]:
-#       raise ValueError("dim_type must be height or width")
-#     axis = dim_type if self.angle in [0, 180] else "height" if dim_type == "width" else "width"
-#     # if self.angle == 0 or self.angle == 180:
-#     #   axis = dim_type
-#     # else:
-#     #   if dim_type == "width":
-#     #     axis = "height"
-#     #   else:
-#     #     axis = "width"
-#     if self.align == "vertical":
-#         return sum(
-#             max(float(image.get(axis)) for image in self.filter2images[filter])
-#             for filter in set(self.id2filter.values())
-#         )
-#     elif self.align == "horizontal":
-#         return sum(
-#             max(float(image.get(axis)) for image in (self.field2images[field] & self.time2images[time] & self.zpos2images[zpos]))
-#             for field in set(self.id2field.values())
-#             for time in set(self.id2time.values())
-#             for zpos in set(self.id2zpos.values())
-#         )
-#     else:
-#         raise ValueError("align must be 'vertical' or 'horizontal'")
 
 
 class ImageAlignEffect(inkex.Effect):  # class 宣言の引数は継承
@@ -281,9 +123,14 @@ class ImageAlignEffect(inkex.Effect):  # class 宣言の引数は継承
     r'^.*?(?P<ROW>[A-Z])(?P<COL>\d+)_\d+_(?P<FLD>\d+)_\d+_(?P<FLT>[^.]+)\..*$',
     r'^(?P<ROW>[A-Z])(?P<COL>\d+)-(?P<FLT>[^.]+)\..*$',
     r'^(?P<ROW>[A-Z])(?P<COL>\d+).*_(?P<FLT>[^._]+)\..*$',
-    r'^.*?(?P<ROW>[A-Z])(?P<COL>\d+)[-_].*',
+    r'^.*?(?P<ROW>[A-Z])(?P<COL>\d+)[-_.].*',
     r'^.*?(?P<ROW>[A-Z])(?P<COL>\d+)\.(jpg|tif|png).*'
   ]))
+
+  if 'regexp' in config.keys():
+    logger.debug("config['regexp'] exists. Loading from config file")
+    logger.debug("config['regexp']=" + str(config['regexp']))
+    file_regexps = list(map(lambda r: re.compile(r, flags=re.IGNORECASE), config['regexp']))
 
   transform_matrix = {
       0: np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
