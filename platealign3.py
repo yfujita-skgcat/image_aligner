@@ -415,11 +415,15 @@ class ImageAlignEffect(inkex.Effect):  # class 宣言の引数は継承
       ph = float(page.get('height'))
       if px <= ori_x <= px + pw and py <= ori_y <= py + ph:
         return page
+    if self.page_elements is None or len(self.page_elements) == 0:
+      return None
     return self.page_elements[0]
 
   # x, y に画像が所属していたpageのoffsetを加算する
   def add_page_offset(self, x, y, img_obj):
     page = self.get_page_obj(img_obj)
+    if page is None:
+      return x, y
     px = float(page.get('x'))
     py = float(page.get('y'))
     return x + px, y + py
@@ -763,7 +767,12 @@ class ImageAlignEffect(inkex.Effect):  # class 宣言の引数は継承
     for image_id in image_ids:
       image_obj = self.svg.getElementById(image_id)
       page = self.get_page_obj(image_obj)
+      if page is None:
+        continue
       page_ids2image_ids.setdefault(page.get('id'), []).append(image_id)
+    # return {"NoPage": image_ids} if page_ids2images_ids is empty
+    if len(page_ids2image_ids) == 0:
+      return {"NoPage": image_ids}
     return page_ids2image_ids
 
   # 多分このeffect()が affect() で呼ばれるんだと思う.
@@ -791,9 +800,13 @@ class ImageAlignEffect(inkex.Effect):  # class 宣言の引数は継承
       logger.debug("===== page id : " + str(page_id))
       logger.debug("image_ids=" + str(image_ids))
       images, max_image_width, max_image_height = self.categorize_images(image_ids, direction=self.options.direction)
-      page = self.svg.getElementById(page_id)
-      px = float(page.get('x'))
-      py = float(page.get('y'))
+      if page_id == "NoPage":
+        px = 0
+        py = 0
+      else:
+        page = self.svg.getElementById(page_id)
+        px = float(page.get('x'))
+        py = float(page.get('y'))
 
       # 各行の縦方向の画像の枚数の最大値
       max_nrow = self.get_max_nrow_in_each_row(images)
