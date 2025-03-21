@@ -49,6 +49,8 @@ if os.path.exists(config_file):
   # if config is not None:
   #   for k, v in config.items():
   #     os.environ[k] = v
+else:
+  config = {}
 
 pp = pprint.PrettyPrinter(indent=2)
 
