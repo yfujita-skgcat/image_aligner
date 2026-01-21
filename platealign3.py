@@ -58,6 +58,7 @@ logger = logging.getLogger("platealign")
 formatter = logging.Formatter('%(levelname)s - %(lineno)d - %(message)s')
 # debugging (True) or deployment (False)
 if False:
+# if True:
   # a logger for debugging/warnings
   logger.setLevel(logging.DEBUG)
   fh = logging.FileHandler(filename='/home/yfujita/work/bin/python/inkscape/platealign/platealign.log', mode='a')
@@ -114,6 +115,7 @@ class ImageAlignEffect(inkex.Effect):  # class 宣言の引数は継承
   # list化を忘れずに
   file_regexps = list(map(lambda r: re.compile(r, flags=re.IGNORECASE), [
     r'^.*?(?P<ROW>[A-Z])-(?P<COL>\d+)_fld_(?P<FLD>\d+)_wv_(?P<FLT>[^.]+).*$',
+    r'^(?P<ROW>[A-Z])(?P<COL>\d+)-F(?P<FLD>\d+)-T(?P<TIME>\d+)-Z(?P<ZPOS>\d+)-P\d+-\d{8}_+\d+-(?P<FLT>[^.]+).*$',
     r'^.*?(?P<ROW>[A-Z])%20-%20(?P<COL>\d+)\(fld%20(?P<FLD>\d+)%20wv%20(?P<FLT>[^)]+).*$',
     r'^.*?(?P<ROW>[A-Z])(?P<COL>\d+)-W\d+-P(?P<FLD>\d+)-Z(?P<ZPOS>\d+)-T(?P<TIME>\d+)-(?P<FLT>[^.]+)',
     r'^.*?(?P<ROW>[A-Z])(?P<COL>\d+)F(?P<FLD>\d+)T(?P<TIME>\d+)Z(?P<ZPOS>...)(?P<FLT>[^.]+)\..*$',
@@ -132,7 +134,16 @@ class ImageAlignEffect(inkex.Effect):  # class 宣言の引数は継承
   if 'regexp' in config.keys():
     logger.debug("config['regexp'] exists. Loading from config file")
     logger.debug("config['regexp']=" + str(config['regexp']))
-    file_regexps = list(map(lambda r: re.compile(r, flags=re.IGNORECASE), config['regexp']))
+    config_regexps = list(map(lambda r: re.compile(r, flags=re.IGNORECASE), config['regexp']))
+    # Remove duplicates while preserving order
+    seen_patterns = set()
+    new_file_regexps = []
+    for r in config_regexps + file_regexps:
+      pattern = r.pattern
+      if pattern not in seen_patterns:
+        new_file_regexps.append(r)
+        seen_patterns.add(pattern)
+    file_regexps = new_file_regexps
 
   transform_matrix = {
       0: np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
